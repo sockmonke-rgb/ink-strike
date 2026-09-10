@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
-<title>Ink Strike — probe</title>
+<title>Ink Strike</title>
 <style>
   :root{
     --ink:#1E272E;
@@ -145,18 +145,6 @@
   .row .tally{font-size:11px;color:var(--cinnabar);text-align:right;line-height:1.4}
   .row .tally b{display:block;font-weight:600}
   .empty{color:var(--bone);font-size:14px;max-width:30ch;line-height:1.5}
-  #probePanel{
-    position:fixed;left:0;right:0;bottom:0;z-index:9;
-    background:rgba(10,16,20,.94);border-top:1px solid #46545E;
-    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;
-    max-height:34vh;display:flex;flex-direction:column;
-  }
-  #probeHead{display:flex;gap:8px;align-items:center;padding:5px 8px;border-bottom:1px solid #2C373E;color:var(--bone)}
-  #probeHead span{flex:1;letter-spacing:.08em;text-transform:uppercase}
-  #probeHead button{font:inherit;background:transparent;color:var(--jade);border:1px solid #46545E;border-radius:2px;padding:3px 7px;cursor:pointer}
-  #probeLog{overflow-y:auto;padding:4px 8px 8px;line-height:1.5;white-space:pre;color:var(--bone)}
-  #probeLog .no{color:var(--cinnabar)}
-  #probeLog .ok{color:var(--jade)}
   @media (prefers-reduced-motion: reduce){*{animation-duration:.01ms !important}}
 </style>
 </head>
@@ -172,7 +160,6 @@
       <div id="mult">×1</div>
     </div>
   </header>
-  <div id="probePanel"><div id="probeHead"><span>stroke probe</span><button id="probeCopy" type="button">copy</button><button id="probeClear" type="button">clear</button></div><div id="probeLog"></div></div>
   <section id="lane"><div id="banner"><span class="comp"></span><span class="lbl"></span></div></section>
   <section id="deck">
     <div id="gloss"><span id="pinyin"></span><span id="meaning"></span><span id="progress"></span></div>
@@ -338,63 +325,10 @@
     level:4, mode:"trace", pace:0, tol:2.4, curChar:"", side:0
   };
   const STATS = Object.create(null);   // char -> record, session only
-  const PROBE = true;                  // instrumented build
+  const PROBE = false;                 // flipped on in the -probe build
 
   let drawPts = [], drawT0 = 0;
-  const probeLines = [];
-
-  function pxLen(p){ let L=0; for(let i=1;i<p.length;i++) L+=Math.hypot(p[i][0]-p[i-1][0], p[i][1]-p[i-1][1]); return L; }
-  function endAngle(p){
-    const a=p[0], b=p[p.length-1];
-    return Math.atan2(b[1]-a[1], b[0]-a[0])*180/Math.PI;   // screen frame, y down
-  }
-  function refAngle(m){
-    const a=m[0], b=m[m.length-1];
-    return Math.atan2(-(b[1]-a[1]), b[0]-a[0])*180/Math.PI; // font y is up: flip
-  }
-  function dAng(x,y){ let d=Math.abs(x-y)%360; if(d>180) d=360-d; return d; }
-  const r0 = n => Math.round(n);
-
-  function probe(d, ok){
-    if(!PROBE) return;
-    const i = d && d.strokeNum!=null ? d.strokeNum : 0;
-    const k = strokeKind(i);
-    const cd = DATA_CACHE[S.curChar];
-    const m = cd && cd.medians && cd.medians[i];
-    const scale = S.side ? S.side/1024 : 0;
-    const pts = drawPts.slice(); drawPts = [];
-    const dur = drawT0 ? r0(performance.now()-drawT0) : 0;
-
-    let drew = "no path captured";
-    if(pts.length > 1){
-      drew = pts.length+"pt " + r0(pxLen(pts)) + "px " + r0(endAngle(pts)) + "\u00b0 " + dur + "ms";
-    }else if(pts.length === 1){
-      drew = "1pt (tap) " + dur + "ms";
-    }
-    let ref = "ref ?";
-    if(m){
-      ref = "ref " + k.tag + " " + r0(k.L) + "u\u2248" + r0(k.L*scale) + "px "
-          + r0(refAngle(m)) + "\u00b0 turn" + r0(k.T) + "\u00b0";
-    }
-    let delta = "";
-    if(m && pts.length > 1) delta = " \u0394" + r0(dAng(endAngle(pts), refAngle(m))) + "\u00b0";
-
-    probeLines.push({
-      ok,
-      text: S.curChar + " #" + i + (ok ? " OK  " : " NO  ") + drew + "  |  " + ref + delta
-            + "  len@" + (S.tol*k.mult).toFixed(1)
-    });
-    if(probeLines.length > 200) probeLines.shift();
-    renderProbe();
-  }
-
-  function renderProbe(){
-    const box = document.getElementById("probeLog");
-    if(!box) return;
-    box.innerHTML = probeLines.slice(-40)
-      .map(l=>'<div class="'+(l.ok?"ok":"no")+'">'+l.text+'</div>').join("");
-    box.scrollTop = box.scrollHeight;
-  }
+  function probe(){}                   // replaced below when PROBE
 
   const $ = s=>document.querySelector(s);
   const lane=$("#lane"), paper=$("#paper"), target=$("#target"), banner=$("#banner");
@@ -791,22 +725,6 @@
       btn.disabled = false;
       veilNote.innerHTML = '<span class="err">Could not build the copy: ' + e.message + '</span>';
     }
-  }
-
-  if(PROBE){
-    target.addEventListener("pointerdown", e=>{ drawPts=[[e.clientX,e.clientY]]; drawT0=performance.now(); }, {passive:true, capture:true});
-    target.addEventListener("pointermove", e=>{ if(drawPts.length) drawPts.push([e.clientX,e.clientY]); }, {passive:true, capture:true});
-    document.getElementById("probeClear").addEventListener("click", ()=>{ probeLines.length=0; renderProbe(); });
-    document.getElementById("probeCopy").addEventListener("click", async ()=>{
-      const t = probeLines.map(l=>l.text).join("\n");
-      try{ await navigator.clipboard.writeText(t); }catch(e){
-        const ta=document.createElement("textarea"); ta.value=t; document.body.appendChild(ta);
-        ta.select(); try{document.execCommand("copy");}catch(_){} ta.remove();
-      }
-      const b=document.getElementById("probeCopy"); b.textContent="copied"; setTimeout(()=>b.textContent="copy",1200);
-    });
-  }else{
-    const pp=document.getElementById("probePanel"); if(pp) pp.remove();
   }
 
   /* ---------- boot ---------- */
