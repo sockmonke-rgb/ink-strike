@@ -1,6 +1,6 @@
 MIT License
 
-Copyright (c) 2026 sockmonke-rgb
+Copyright (c) 2026 Mark Florentino LLC and Kittenmancer
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -19,3 +19,10 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+This license covers the Ink Strike source code, game design, vocabulary lists
+and artwork only. Third-party components bundled or loaded at runtime carry
+their own licenses — see THIRD-PARTY.md. In particular, the character stroke
+data is NOT MIT-licensed.
