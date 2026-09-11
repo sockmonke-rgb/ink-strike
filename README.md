@@ -73,24 +73,6 @@ file. Roughly 1 MB. No tooling required.
 `build_offline.py` does the same job from the command line if you would rather
 bundle at release time. It is optional and nothing depends on it.
 
-## Publishing to itch.io
-
-1. Zip the contents of this folder with `index.html` **at the top level** of
-   the zip (not inside a subfolder).
-2. Upload, then tick **This file will be played in the browser**.
-3. Embed options: viewport around **420 × 820**, **Mobile friendly** on
-   (with orientation set to portrait), **Fullscreen button** on.
-4. Leave the CDN calls alone or ship the offline build — itch serves the game
-   in an iframe, and outbound fetches to jsDelivr work fine from there.
-
-One caveat worth knowing: Safari partitions storage inside third-party iframes,
-so on some phones the stroke calibration will not persist between sessions on
-the embedded version. The game handles that — it falls back to its analytic
-seed mapping and re-calibrates within a few strokes. The downloadable offline
-copy has no such problem.
-
-GitHub Pages works the same way: push, enable Pages on the branch root, done.
-
 ## Credits
 
 **Ink Strike** — by **Mark Florentino LLC** and **Kittenmancer**.
