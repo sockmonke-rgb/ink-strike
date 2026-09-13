@@ -22,8 +22,10 @@
     background:var(--ink-deep);color:var(--paper);font-family:var(--sans);
     -webkit-font-smoothing:antialiased;overflow:hidden;
   }
-  body.probe-on #app{height:calc(100dvh - 36px)}
-  body.probe-open #app{height:calc(100dvh - 32vh)}
+  /* The probe no longer shortens the app in either orientation - it is
+     pinned over the lane by placeProbe(), so opening or folding it cannot
+     resize the paper. Portrait used to flap 268 -> 184 -> 256 on every
+     settings visit, which moved the gate's pixel thresholds with it. */
   #app{
     height:100dvh;display:flex;flex-direction:column;
     padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom);
@@ -198,10 +200,13 @@
   .row .tally{font-size:11px;color:var(--cinnabar);text-align:right;line-height:1.4}
   .row .tally b{display:block;font-weight:600}
   .empty{color:var(--bone);font-size:14px;max-width:30ch;line-height:1.5}
+  /* Two short lines, so it stays in the strip left of the paper instead of
+     running under it. Nothing may sit over the writing square. */
   #ver{
-    position:fixed;left:8px;bottom:6px;z-index:8;pointer-events:none;
-    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;
-    color:var(--bone);opacity:.45;letter-spacing:.06em;
+    position:fixed;left:5px;bottom:5px;z-index:8;pointer-events:none;
+    font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:9px;
+    color:var(--bone);opacity:.5;letter-spacing:.04em;
+    line-height:1.35;text-align:left;white-space:nowrap;
   }
   #vtag{display:block;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;
     font-size:11px;color:var(--bone);opacity:.6;letter-spacing:.08em;margin-top:2px}
@@ -210,13 +215,17 @@
     position:fixed;left:0;right:0;bottom:0;z-index:9;padding-bottom:env(safe-area-inset-bottom);
     background:rgba(10,16,20,.94);border-top:1px solid #46545E;
     font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:10px;
-    max-height:32vh;display:flex;flex-direction:column;
+    max-height:30vh;display:flex;flex-direction:column;
   }
   body:not(.probe-open) #probeLog{display:none}
+  /* Open, the dock is a fixed height rather than one that grows with the log,
+     so the padding reserved for it downstairs stays correct. */
+  body.probe-open #probePanel{height:30vh}
+  body.probe-on #lane{min-height:40px}
   #probeHead{display:flex;gap:8px;align-items:center;padding:5px 8px;border-bottom:1px solid #2C373E;color:var(--bone)}
   #probeHead span{flex:1;letter-spacing:.08em;text-transform:uppercase}
   #probeHead button{font:inherit;background:transparent;color:var(--jade);border:1px solid #46545E;border-radius:2px;padding:3px 7px;cursor:pointer}
-  #probeLog{overflow-y:auto;max-height:calc(32vh - 36px);padding:4px 8px 8px;line-height:1.5;white-space:pre;color:var(--bone)}
+  #probeLog{overflow-y:auto;flex:1 1 auto;min-height:0;padding:4px 8px 8px;line-height:1.5;white-space:pre;color:var(--bone)}
   #probeLog .no{color:var(--cinnabar)}
   #probeLog .sys{color:#7C8A94}
   #probeLog .ok{color:var(--jade)}
@@ -240,9 +249,9 @@
   @media (orientation:landscape){
     #app{
       display:grid;
-      grid-template-columns:minmax(0,1fr) auto;
+      grid-template-columns:minmax(0,1fr) auto auto;
       grid-template-rows:auto minmax(0,1fr) auto;
-      grid-template-areas:"hud paper" "lane paper" "gloss paper";
+      grid-template-areas:"hud hud paper" "lane probe paper" "gloss probe paper";
       padding-left:env(safe-area-inset-left);padding-right:env(safe-area-inset-right);
     }
     #hud{grid-area:hud;padding:5px 12px 2px;flex-wrap:wrap;row-gap:4px}
@@ -258,15 +267,27 @@
     #pinyin{font-size:18px}
     #meaning{font-size:13px}
     .skip{margin-top:4px;padding:4px 10px;font-size:11px}
+    body.probe-on #ver{display:none}
     #banner .comp{font-size:46px}
     #banner.review .comp{font-size:36px}
 
     /* The probe never touches the app box in landscape. It is pinned over
        the lane - between the header and the paper - by placeProbe(), so
        opening, folding or closing it cannot move or resize the paper. */
-    body.probe-on #app, body.probe-open #app{height:100dvh;width:auto}
-    #probePanel{max-height:none;border-left:1px solid #46545E;border-right:1px solid #46545E}
-    body.probe-open #probeLog{max-height:none;flex:1 1 auto}
+    /* Landscape gives the probe its own column, between the lane and the
+       paper. In flow, not floating: the lane column is the 1fr, so the probe
+       takes its width from the lane and the paper never moves. Folding only
+       drops the log - the column keeps its width - so show and hide reflow
+       nothing at all. */
+    #probePanel{
+      position:static;grid-area:probe;align-self:stretch;
+      width:min(320px,32vw);max-height:none;margin:6px 10px 6px 2px;
+      border:1px solid #46545E;border-radius:2px;
+      padding-bottom:0;
+    }
+    body:not(.probe-open) #probePanel{align-self:start}
+    body.probe-open #probePanel{height:auto}
+    body.probe-on #lane{min-height:0}
 
     .settings{
       display:grid;grid-template-columns:1fr 1fr;gap:6px 18px;
@@ -488,7 +509,7 @@
   };
   const STATS = Object.create(null);   // char -> record, session only
   const VERSION = "1.0-rc1";
-  const BUILD = "v36";        // lineage, so a pasted probe log still says which build
+  const BUILD = "v47";        // lineage, so a pasted probe log still says which build
   let PROBE = false;                   // toggle from the trouble list
 
   let drawPts = [], drawT0 = 0, inkSrc = null, judged = false;
@@ -541,11 +562,12 @@
                 if(!GATE) return "  gate:off";
                 if(!g) return "  gate:-";
                 return "  gate:" + (g.kill || "pass")
-                     + (g.dT!=null ? " dturn" + r0(g.dT) + "\u00b0" : "")
+                     + (g.dT!=null ? " dturn" + r0(g.dT) + "/" + r0(g.dTmax||0) + "\u00b0" : "")
                      + (g.ratio!=null ? " L\u00d7" + g.ratio.toFixed(2) : "")
                      + (g.off!=null ? " off" + r0(g.off) + "px" : "")
                      + (g.near!=null ? " near#" + g.near : "")
                      + (g.gap!=null ? " gap" + r0(g.gap) : "")
+                     + (g.endGap!=null ? " end" + r0(g.endGap) + "px" : "")
                      + (g.at ? " at" + g.at + " want" + g.ref : "")
                      + " " + fitTag();
               })()
@@ -568,6 +590,7 @@
     box.innerHTML = probeLines.slice(-40)
       .map(l=>'<div class="'+(l.sys?"sys":(l.ok?"ok":"no"))+'">'+l.text+'</div>').join("");
     box.scrollTop = box.scrollHeight;
+    if(typeof placeProbe === "function") placeProbe();
   }
 
   const $ = s=>document.querySelector(s);
@@ -577,9 +600,12 @@
   const veil=$("#veil"), veilNote=$("#veilNote"), go=$("#go");
   const statsSheet=$("#stats"), rows=$("#rows"), statsSub=$("#statsSub");
 
-  document.title = "Ink Strike " + VERSION;
-  $("#ver").textContent = VERSION + " · " + BUILD + (window.HANZI_DATA ? " · offline" : "");
-  $("#vtag").textContent = VERSION;
+  /* One string everywhere, so a screenshot of the splash, the watermark and
+     a pasted probe log all name the same build. */
+  const STAMP = VERSION + " · " + BUILD;
+  document.title = "Ink Strike " + STAMP;
+  $("#ver").innerHTML = VERSION + "<br>" + BUILD + (window.HANZI_DATA ? "<br>offline" : "");
+  $("#vtag").textContent = STAMP;
 
   /* The writer bakes the paper size in when it is built: its SVG, and the
      maths it uses to turn a touch into a point on the character, both come
@@ -590,6 +616,7 @@
   let paperSide = 0, pendingPaper = false, mountedFoe = null;
 
   const STEP = 4;                   // quantise, so viewport jitter is not a rebuild
+  const DEAD = 24;                  // ignore anything smaller: viewport noise, not a resize
   const CAPS = {p:0, l:0};          // best size each orientation has been seen to hold
 
   function isLandscape(){
@@ -622,6 +649,15 @@
      costs nothing once the next one lands, and a reading taken while the CSS
      still disagrees about which way round we are is discarded rather than
      remembered. */
+  /* What actually fits on screen this instant, as opposed to what we would
+     like: a bogus reading can never push the paper past this. */
+  function hardFit(){
+    const app = document.getElementById("app");
+    const appH = app.clientHeight || window.innerHeight;
+    const appW = app.clientWidth || window.innerWidth;
+    const side = isLandscape() ? appH - 10 : Math.min(appW*0.92, appH*0.46);
+    return Math.round(side/STEP)*STEP;
+  }
   function wantSide(){
     const ls = isLandscape();
     const cur = maxSide();
@@ -629,26 +665,74 @@
     try{ settled = window.matchMedia("(orientation:landscape)").matches === ls; }catch(e){}
     const mine = ls ? "l" : "p", other = ls ? "p" : "l";
     if(settled && cur > CAPS[mine]) CAPS[mine] = cur;
-    return CAPS[other] ? Math.max(96, Math.min(cur, CAPS[other])) : cur;
+    /* Aim at the best this orientation has been seen to hold rather than at
+       this frame's reading. iOS reports 100dvh with and without the home
+       indicator's 21px depending on when you ask, which came out as a paper
+       flipping 268 -> 276 -> 268 all session, rebuilding the character every
+       time. Within an orientation the target only ever goes up. */
+    let side = Math.max(cur, CAPS[mine]);
+    if(CAPS[other]) side = Math.min(side, CAPS[other]);
+    return Math.max(96, Math.min(side, hardFit()));
   }
-  /* In landscape the probe fills the lane exactly: same rectangle the foes
-     fall down, so the header, the gloss and the paper all stay visible and
-     none of them move. Folded, it collapses to its own bar at the foot of
-     that rectangle. Portrait keeps the full-width panel it always had. */
+  /* Portrait docks the probe at the foot of the screen, where it has always
+     been, and pays for it out of the app's padding. Landscape gives it a
+     column of its own between the lane and the paper, which the CSS handles.
+     Either way it never changes the paper's size. */
+  /* On a wide phone the paper can reach within 40px of the edge, leaving no
+     strip for the stamp. Rather than let it run under the square, lift it to
+     just above the paper's top edge, where the gloss leaves the left free. */
+  function placeVer(){
+    const v = document.getElementById("ver");
+    if(!v) return;
+    const pr = paper.getBoundingClientRect();
+    const vh = document.documentElement.clientHeight || window.innerHeight;
+    if(!pr.width){ v.style.bottom = ""; return; }
+    const tight = pr.left < v.offsetWidth + 8;
+    v.style.bottom = tight ? Math.round(Math.max(5, vh - pr.top + 5)) + "px" : "";
+  }
+
   function placeProbe(){
+    placeVer();
     const p = document.getElementById("probePanel");
-    if(!p) return;
+    const app = document.getElementById("app");
+    if(!p || !app) return;
     if(!isLandscape()){
-      p.style.left = p.style.right = p.style.top = p.style.bottom = "";
+      /* Portrait keeps the full-width dock at the foot of the screen. The
+         room for it is taken out of the app's padding, not its height: the
+         paper is sized from clientHeight, which counts padding, so it keeps
+         its size and the lane above it gives up the space instead. That is
+         what used to make the paper flap 268 -> 184 on every settings visit. */
+      p.style.position = p.style.left = p.style.right = p.style.top = p.style.bottom = p.style.width = "";
+      const gl = document.getElementById("gloss");
+      if(gl) gl.style.marginBottom = "";
+      const on = document.body.classList.contains("probe-on");
+      app.style.paddingBottom = on
+        ? "calc(env(safe-area-inset-bottom) + " + p.offsetHeight + "px)"
+        : "";
       return;
     }
-    const r = lane.getBoundingClientRect();
+    /* Landscape: open, the panel is a column of its own between the lane and
+       the paper. Folded, a column is a lot of width for one bar, so it tucks
+       along the bottom of the left side instead - the paper's column is left
+       untouched, and the height comes out of the lane, so the square keeps
+       its size either way. */
+    app.style.paddingBottom = "";
+    const gl = document.getElementById("gloss");
+    if(document.body.classList.contains("probe-open")){
+      p.style.position = p.style.left = p.style.right = p.style.top = p.style.bottom = p.style.width = "";
+      if(gl) gl.style.marginBottom = "";
+      return;
+    }
+    const ar = app.getBoundingClientRect(), pr = paper.getBoundingClientRect();
     const vw = document.documentElement.clientWidth || window.innerWidth;
     const vh = document.documentElement.clientHeight || window.innerHeight;
-    p.style.left = Math.round(r.left) + "px";
-    p.style.right = Math.round(vw - r.right) + "px";
-    p.style.bottom = Math.round(Math.max(0, vh - r.bottom)) + "px";
-    p.style.top = document.body.classList.contains("probe-open") ? Math.round(r.top) + "px" : "auto";
+    p.style.position = "fixed";
+    p.style.width = "auto";
+    p.style.top = "auto";
+    p.style.left = Math.round(ar.left + 12) + "px";
+    p.style.right = Math.round(Math.max(0, vw - pr.left + 10)) + "px";
+    p.style.bottom = Math.round(Math.max(0, vh - ar.bottom) + 6) + "px";
+    if(gl) gl.style.marginBottom = (p.offsetHeight + 12) + "px";
   }
 
   function applyPaper(side){
@@ -661,7 +745,7 @@
   function sizePaper(opts){
     const force = !!(opts && opts.force);
     const want = wantSide();
-    if(Math.abs(want - paperSide) < STEP*2){ pendingPaper = false; placeProbe(); return; }
+    if(Math.abs(want - paperSide) < DEAD){ pendingPaper = false; placeProbe(); return; }
     /* A growth can wait for the end of the character; a shrink cannot -
        a paper wider than its column spills off the screen, which is what
        the held resizes in v32 left behind. */
@@ -1065,6 +1149,14 @@
     S.t += dt; last = ts;
 
     if(S.waveLeft === 0 && S.foes.length === 0) nextWave();
+    /* Dead air. The spawn gap is measured from the last spawn, so writing
+       faster than the wave arrives empties the lane and blanks the paper -
+       up to 12.6s of nothing on Drift. If there is nothing to write and the
+       wave still has foes, bring the next one forward to a single beat. */
+    if(S.foes.length === 0 && S.waveLeft > 0 && S.spawnAt > S.t + 900){
+      S.spawnAt = S.t + 900;
+      probeNote("lane empty, next foe pulled forward");
+    }
     const newest = S.foes.length ? S.foes[S.foes.length-1] : null;
     const roomAtTop = !newest || (S.t - newest.born) > 1600;
     if(S.waveLeft > 0 && S.t >= S.spawnAt && roomAtTop){
@@ -1167,7 +1259,7 @@
   function strokeKind(i){
     const d = DATA_CACHE[S.curChar];
     const m = d && d.medians && d.medians[i];
-    if(!m) return {mult:1, tag:"?", L:0, T:0, Tmax:0};
+    if(!m) return {mult:1, tag:"?", L:0, T:0, Tmax:0, Tn:0};
     const L = medLen(m), t = turnStats(m);
     /* Summed turning grows with how many points a path has, and a median
        carries far fewer than a resampled finger stroke, so the two sums were
@@ -1175,9 +1267,9 @@
     const tn = turnStats(smooth(resample(m, 16)));
     const scale = S.side ? S.side/1024 : 0;
     const px = L*scale;
-    if(L < 150 || (px && px < 50)) return {mult:2.2, tag:"dot",  L:L, T:tn.sum, Traw:t.sum, Tmax:t.max};
-    if(t.max > 60)                 return {mult:1.35,tag:"hook", L:L, T:tn.sum, Traw:t.sum, Tmax:t.max};
-    return {mult:1, tag:"line", L:L, T:tn.sum, Traw:t.sum, Tmax:t.max};
+    if(L < 150 || (px && px < 50)) return {mult:2.2, tag:"dot",  L:L, T:tn.sum, Traw:t.sum, Tmax:t.max, Tn:tn.max};
+    if(t.max > 60)                 return {mult:1.35,tag:"hook", L:L, T:tn.sum, Traw:t.sum, Tmax:t.max, Tn:tn.max};
+    return {mult:1, tag:"line", L:L, T:tn.sum, Traw:t.sum, Tmax:t.max, Tn:tn.max};
   }
   function charLeniency(){
     return S.tol;   // per-stroke tuning takes it from here
@@ -1201,7 +1293,8 @@
      nil for that one evaluation and let the normal miss path handle it. */
   const GATE_RATIO = 1.5;    // drawn path length vs reference path length
   const GATE_SLACK = 35;     // ...and at least this many extra pixels
-  const GATE_TURN  = 110;    // degrees of turning beyond the reference
+  const GATE_TURN  = 110;    // degrees of summed turning beyond the reference
+  const GATE_CORNER= 55;     // ...and a corner that much sharper than the reference's own
   const GATE_BENT  = 120;    // a reference with at least this much turning is a fold
   const GATE_FLAT  = 0.45;   // ...and drawing under this share of it is a different stroke
   const GATE_SHORT = 0.62;   // drawn this much shorter than the reference
@@ -1210,13 +1303,14 @@
   const GATE_LONGREF = 60;   // reference px above which direction is meaningful
   const GATE_BENDREF = 90;   // ...and above which a fold is big enough to measure
   const LENIENCY_CAP = 8;    // however many retries, never looser than this
-  const GATE_SEED  = 0.30;   // distance allowed while the mapping is only assumed
+  const GATE_SEED  = 0.24;   // distance allowed while the mapping is only assumed
   const GATE_DOT   = 1.9;    // a dot drawn this many times longer than its reference
   const GATE_FAR   = 0.22;   // centroid this far off the reference, as a fraction of the paper
   const GATE_CLAIM = 0.70;   // ...or another stroke of the character fits this much better
   const GATE_TWIN  = 0.18;   // two references closer than this cannot be told apart at all
   const GATE_STUB  = 0.45;   // a straight stroke drawn under this share is a stub, not sloppy
   const GATE_OFFAXIS = 25;   // ...or it is short AND pointing somewhere else
+  const GATE_STOP  = 0.18;   // how far from the reference's end a stroke may stop
   /* The chips set the library's leniency and left the gate exactly as
      strict, so Forgiving and Exact rejected the same shapes. Scale it. */
   function gateSlack(){ return S.tol >= 2.4 ? 1.5 : S.tol >= 1.6 ? 1.2 : 1; }
@@ -1285,25 +1379,47 @@
      samples confirm it, so while it is all we have, placement only catches a
      gross miss - but that is still better than the blind first character
      every session, which is where most false positives have turned up. */
-  /* seed:29 through seed:31 on a 255px paper is 0.12 of the side, which is
-     124 units of 1024 - the baseline offset the glyph data carries. The
-     renderer shifts by it and my seed did not. */
-  const GLYPH_BASE = 124;
-  function seedMap(u, v){
+  /* The two branches disagreed about the sign of this. One measured seed:29
+     on a 255px paper and shifted the glyph baseline up by its 124 units; the
+     other measured the error going to 54 afterwards - two offsets' worth -
+     and concluded the shift belonged the other way. Both were reading real
+     numbers off real devices, which means the thing to do is stop choosing.
+     Your own accepted strokes say which mapping is right: score all three
+     and keep the one with the smallest error. */
+  const BASE_TRIES = [-124, 0, 124];
+  let GLYPH_BASE = -124;
+  function seedMapWith(u, v, b){
     const r = paper.getBoundingClientRect();
     const side = r.width, pad = Math.round(side*0.06), sc = (side - 2*pad)/1024;
-    return [r.left + pad + u*sc, r.top + side - pad - (v - GLYPH_BASE)*sc];
+    return [r.left + pad + u*sc, r.top + side - pad - (v - b)*sc];
   }
-  function seedError(){
-    if(samples.length < 5) return null;
+  function seedMap(u, v){ return seedMapWith(u, v, GLYPH_BASE); }
+  function baseError(b){
     const r = paper.getBoundingClientRect();
+    if(!r.width || samples.length < 5) return Infinity;
     let sum = 0;
     for(let i=0;i<samples.length;i++){
       const p = samples[i];
-      const m = seedMap(p.u, p.v);
+      const m = seedMapWith(p.u, p.v, b);
       sum += Math.hypot(m[0] - (r.left + p.nx*r.width), m[1] - (r.top + p.ny*r.width));
     }
     return sum/samples.length;
+  }
+  function tuneGlyphBase(){
+    if(samples.length < 5) return;
+    let best = GLYPH_BASE, bestE = Infinity;
+    for(let i=0;i<BASE_TRIES.length;i++){
+      const e = baseError(BASE_TRIES[i]);
+      if(e < bestE){ bestE = e; best = BASE_TRIES[i]; }
+    }
+    if(best !== GLYPH_BASE){
+      GLYPH_BASE = best;
+      probeNote("glyph baseline " + best + "u, seed error " + Math.round(bestE) + "px");
+    }
+  }
+  function seedError(){
+    if(samples.length < 5) return null;
+    return baseError(GLYPH_BASE);
   }
 
   const FIT_STORE = "inkstrike.fit.v1";
@@ -1351,6 +1467,7 @@
     return {k:k, b:(sy - k*sx)/n};
   }
   function refit(){
+    tuneGlyphBase();                 // the seed mapping is re-scored on every new stroke
     FIT = null; FIT_N = samples.length; FIT_RES = 0;
     if(samples.length < 5) return;
     const fx = lineFit(samples.map(p=>[p.u, p.nx]));
@@ -1381,7 +1498,7 @@
   }
   function fitTag(){
     const se = seedError();
-    const seedBit = se == null ? "" : " seed:" + Math.round(se);
+    const seedBit = se == null ? "" : " seed:" + Math.round(se) + "@" + GLYPH_BASE;
     if(FIT) return "fit" + FIT_N + ":" + Math.round(FIT_RES) + seedBit;
     return "fit" + FIT_N + ":seeded" + seedBit;
   }
@@ -1430,17 +1547,23 @@
       return;
     }
     if(off > GATE_FAR*side){ v.kill = v.kill || "place"; return; }
-    /* The three dots of a water radical sit closer together than the noise
-       in a finger's centroid, so "another stroke fits better" means nothing
-       between them. Only let a rival claim the stroke if the two references
-       are far enough apart to be distinguishable in the first place. */
-    if(!relax && best !== i && bestD < GATE_CLAIM*off
-            && off > 0.12*side && (off - bestD) > 0.10*side
+    /* Two guards, from opposite directions. The floors: tight on the first
+       try, wider once a kill has already been spent, so a rejection never
+       traps you in a loop of rejections. The gap: the three dots of a water
+       radical sit closer together than the noise in a finger's centroid, so
+       "another stroke fits better" means nothing between them - a rival can
+       only claim the stroke if the two references are far enough apart to be
+       told apart at all. */
+    const g = gateSlack();
+    const floor  = (relax ? 0.12 : 0.08) * g;
+    const margin = (relax ? 0.10 : 0.06) * g;
+    if(best !== i && bestD < GATE_CLAIM*off
+            && off > floor*side && (off - bestD) > margin*side
             && v.gap != null && v.gap > GATE_TWIN*side) v.kill = v.kill || "place";
   }
 
   function gateVerdict(i){
-    const v = {kill:null, dT:null, ratio:null, off:null, near:null, gap:null, dA:null, at:null, ref:null, map:"", tag:"?"};
+    const v = {kill:null, dT:null, dTmax:null, ratio:null, off:null, near:null, gap:null, end:null, endGap:null, dA:null, at:null, ref:null, map:"", tag:"?"};
     if(!GATE) return v;
     const k = strokeKind(i);
     v.tag = k.tag;
@@ -1448,7 +1571,10 @@
     if(spent >= 5) { v.tag += "*"; return v; }      // never wedge you completely
     const relax = spent > 0;
     if(relax) v.tag += "~";
-    const R = (relax ? 1.35 : 1) * gateSlack();   // the tolerance chip now reaches the gate
+    /* The retry relaxation and the tolerance chip used to multiply: one
+       kill on Forgiving reached 2.03, which is barely a gate at all. That
+       is how 间 #2 was accepted at 45% of its reference twice over. */
+    const R = Math.min((relax ? 1.35 : 1) * gateSlack(), 1.6);
     if(drawPts.length >= 2) { try{ placeCheck(i, v, relax); }catch(e){ v.map = "?"; } }
     if(k.tag === "?") return v;
     if(k.tag === "dot"){                              // a dot may be fat, not four times too long
@@ -1456,7 +1582,7 @@
       const dl = pxLen(drawPts);
       if(dpx && drawPts.length >= 2){
         v.ratio = dl/dpx;
-        if(v.ratio > GATE_DOT*R && (dl - dpx) > 15*R) v.kill = v.kill || "long";
+        if(v.ratio > Math.min(GATE_DOT*R, 2.2) && (dl - dpx) > 15*R) v.kill = v.kill || "long";
       }
       return v;
     }
@@ -1464,14 +1590,28 @@
     const refPx = k.L * scale;
     if(!refPx || drawPts.length < 4) return v;
     const dp = smooth(resample(drawPts, 16));
-    v.dT = turnStats(dp).sum;
+    const ds = turnStats(dp);
+    v.dT = ds.sum; v.dTmax = ds.max;
     const dL = pxLen(drawPts);
     v.ratio = dL/refPx;
     const m = (DATA_CACHE[S.curChar]||{}).medians;
     if(m && m[i] && m[i].length > 1){
       v.dA = dAng(endAngle(drawPts), refAngle(m[i]));
     }
-    if(v.ratio > GATE_RATIO*R && (dL - refPx) > GATE_SLACK*R) v.kill = v.kill || "long";
+    /* Length ratio is a weak proxy for "you drew one limb of a fold". The
+       direct question is whether the stroke ever arrived: a 横折钩 drawn as
+       its horizontal alone ends nowhere near where the reference ends, no
+       matter how the ratio reads. This one does not scale with the chip -
+       stopping a third of the way through is not a tolerance matter - and
+       the five-kill escape still steps out of the way if it is wrong. */
+    const refPts = refPtsPx(i);
+    if(refPts && refPts.length > 1 && drawPts.length > 1 && refPx > 80){
+      v.endGap = dist(drawPts[drawPts.length-1], refPts[refPts.length-1]);
+      const side = S.side || paper.clientWidth || 0;
+      if(side && v.endGap > GATE_STOP*side) v.kill = v.kill || "stop";
+    }
+    if(v.kill){ /* already decided */ }
+    else if(v.ratio > GATE_RATIO*R && (dL - refPx) > GATE_SLACK*R) v.kill = v.kill || "long";
     /* Short used to fire on any stroke drawn under 62%, which caught the
        right stroke drawn a bit stingily - correct angle, correct place, just
        stopped early. That is the library's business, not the gate's. The
@@ -1480,7 +1620,13 @@
     else if(v.ratio < GATE_SHORT/R && (refPx - dL) > GATE_SLACK2*R
             && (k.tag === "hook" || v.ratio < GATE_STUB
                 || (v.dA != null && v.dA > GATE_OFFAXIS))) v.kill = v.kill || "short";
-    else if(v.dT - k.T > GATE_TURN + (relax?60:0)) v.kill = v.kill || "turn";
+    /* Summed turning alone is not evidence. A slow, shaky drag down a
+       straight reference piles up 200 degrees of it with no corner in sight -
+       that is a finger, not a different stroke. Ask for both: far more
+       turning in total AND a corner sharper than anything the reference has.
+       An added limb shows up in both; wobble only in one. */
+    else if(v.dT - k.T > GATE_TURN + (relax?60:0)
+            && v.dTmax - (k.Tn||0) > GATE_CORNER + (relax?30:0)) v.kill = v.kill || "turn";
     /* Flat asks "did you draw a fold as a straight line?" - but summed
        turning also piles up on a long gentle curve with no corner in it,
        and those were being rejected for being drawn straight, which is how
@@ -1504,7 +1650,7 @@
     try{ v = gateVerdict(i); }catch(e){ v = null; }
     lastGate = v;
     if(v && v.kill){
-      gateKills[i] = (gateKills[i]||0) + 1;
+      if(drawPts.length >= 4) gateKills[i] = (gateKills[i]||0) + 1;   // not a stray tap
       lastKill = v.kill;
       writeLeniency(0.001);      // the library rejects it and onMistake fires as usual
     }
@@ -1611,11 +1757,11 @@
     document.addEventListener("mouseup",       ()=>finish("p"), {capture:true});
     document.addEventListener("touchend",      ()=>finish("t"), {capture:true});
     document.addEventListener("touchcancel",   ()=>finish("t"), {capture:true});
-    document.getElementById("probeTitle").textContent = "stroke probe · " + VERSION + " " + BUILD;
+    document.getElementById("probeTitle").textContent = "stroke probe · " + STAMP;
     document.getElementById("probeFold").addEventListener("click", toggleFold);
     document.getElementById("probeClear").addEventListener("click", ()=>{ probeLines.length=0; renderProbe(); });
     document.getElementById("probeCopy").addEventListener("click", async ()=>{
-      const t = ["ink strike " + VERSION + " " + BUILD].concat(probeLines.map(l=>l.text)).join("\n");
+      const t = ["ink strike " + STAMP].concat(probeLines.map(l=>l.text)).join("\n");
       try{ await navigator.clipboard.writeText(t); }catch(e){
         const ta=document.createElement("textarea"); ta.value=t; document.body.appendChild(ta);
         ta.select(); try{document.execCommand("copy");}catch(_){} ta.remove();

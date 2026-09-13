@@ -1,10 +1,10 @@
 # Ink Strike — test plan
 
-**Plan version 1.1** · 13 September 2026 · covers Ink Strike 1.0-rc1, build v46
+**Plan version 1.2** · 13 September 2026 · covers Ink Strike 1.0-rc1, build v47
 
 The single HTML file is the unit under test; there is no build step to verify.
 The plan is versioned separately from the game: quote both when reporting, as in
-"plan 1.1 against 1.0-rc1 · v46". Revision history is at the foot of the
+"plan 1.2 against 1.0-rc1 · v47". Revision history is at the foot of the
 document.
 
 Three tiers, in order of cost:
@@ -16,7 +16,7 @@ Three tiers, in order of cost:
 - **Tier 2 — gameplay and gate.** Everything else. ~20 minutes for a full pass,
   or run the affected section only.
 
-Record the build stamp (`1.0-rc1 · v46`) with every result. It appears on the
+Record the build stamp (`1.0-rc1 · v47`) with every result. It appears on the
 splash, the in-play watermark, the probe header and the head of any copied log.
 
 ---
@@ -179,6 +179,7 @@ probe prints as `gate:pass` or `gate:<reason>`.
 | G6 | 妈 #1 | the 横 written before the 撇 | `place` — genuine stroke-order error, must still be caught | v25 log |
 | G7 | any stroke | a stray tap (1–3 points) | no retry consumed — `m` does not advance | merged branch |
 | G8 | any dot | a dot drawn 3× too long | `long` — the dot cap holds regardless of retries | merged branch |
+| G11 | any long straight stroke | the correct stroke, drawn slowly and shakily (600ms+) | `pass` — summed turning without a corner is a finger, not a different stroke | v46 log |
 
 Plus two settings checks:
 
@@ -223,6 +224,7 @@ the log line alone cannot distinguish "drew it right" from "drew half of it".
 |---|---|---|---|
 | 1.0 | 13 Sep 2026 | 1.0-rc1 · v43 | First issue. Tier 0 pre-flight (P1–P10), Tier 1 layout invariants (L1–L12), Tier 2 gameplay and gate (G1–G10, C1–C4). |
 | 1.1 | 13 Sep 2026 | 1.0-rc1 · v46 | Added the dead-air check to *The loop* — the lane must not sit empty when a wave still has foes (v46). |
+| 1.2 | 13 Sep 2026 | 1.0-rc1 · v47 | Added G11 — a slow, shaky but correct stroke must not be rejected for summed turning (v47). |
 
 When a build fixes something this plan did not catch, add the check here in the
 same commit as the fix, and note the build it was first seen in.
