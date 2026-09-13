@@ -509,7 +509,7 @@
   };
   const STATS = Object.create(null);   // char -> record, session only
   const VERSION = "1.0-rc1";
-  const BUILD = "v47";        // lineage, so a pasted probe log still says which build
+  const BUILD = "v48";        // lineage, so a pasted probe log still says which build
   let PROBE = false;                   // toggle from the trouble list
 
   let drawPts = [], drawT0 = 0, inkSrc = null, judged = false;
@@ -1770,7 +1770,10 @@
     });
   }
 
-  function setProbe(on){
+  /* on: the panel exists and the log is recording. open: the log is showing.
+     The default run has it on and folded - a one-line bar - so a session is
+     always recording and a bug report is one tap on "copy" away. */
+  function setProbe(on, open){
     PROBE = on;
     probeNote("probe " + (on ? "on" : "off"));
     document.getElementById("probePanel").classList.toggle("off", !on);
@@ -1778,7 +1781,7 @@
     document.getElementById("probeToggle").textContent = "Stroke probe: " + (on ? "on" : "off");
     document.body.classList.toggle("probe-on", on);
     if(!on) document.body.classList.remove("probe-open");
-    else document.body.classList.add("probe-open");
+    else document.body.classList.toggle("probe-open", open !== false);
     setFoldLabel();
     sizePaper(); placeProbe();
   }
@@ -1832,7 +1835,7 @@
   });
   $("#probeToggle").addEventListener("click", ()=>setProbe(!PROBE));
   $("#soundToggle").addEventListener("click", ()=>setSound(!S.sound));
-  setProbe(false); setSound(false); loadSamples();
+  setProbe(true, false); setSound(false); loadSamples();
 
   applyPace();
 })();
