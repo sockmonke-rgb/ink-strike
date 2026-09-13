@@ -62,8 +62,11 @@
   #comboBar i{display:block;height:100%;width:0%;background:var(--jade);transition:width .25s ease}
 
   #lane{position:relative;flex:1 1 auto;min-height:88px;min-width:0;margin:42px 12px 0;border-bottom:2px solid #3A4750}
-  .foe{position:absolute;left:50%;top:0;transform:translate(-50%,-50%);
+  .foe{position:absolute;left:50%;top:0;transform:translate(-50%,-50%);z-index:1;
        display:flex;flex-direction:column;align-items:center;gap:4px;will-change:top}
+  /* The one you are writing sits above the queue behind it. */
+  .foe.active{z-index:3}
+  .foe.burst, .foe.breach{z-index:2}
   .foe .blot{
     display:flex;align-items:center;justify-content:center;
     background:#0E1418;color:var(--paper);border:1px solid #46545E;
@@ -89,6 +92,11 @@
   #banner .comp{font-family:var(--serif);font-size:60px;color:var(--cinnabar);line-height:1}
   #banner.review .comp{color:var(--jade);font-size:46px}
   #banner .lbl{font-size:13px;color:var(--bone);letter-spacing:.04em}
+  #banner .hint{
+    margin-top:9px;max-width:30ch;font-size:13px;line-height:1.45;
+    color:var(--paper);opacity:.9;text-wrap:balance;
+  }
+  #banner .hint:empty{display:none}
 
   #deck{flex:0 0 auto;padding:10px 0 6px;display:flex;flex-direction:column;align-items:center}
   #paper{
@@ -140,6 +148,14 @@
   #comboBar.up i{background:var(--paper)}
   #gloss.done #meaning{color:var(--jade);transition:color .3s}
   #paper.wrong{animation:shake .22s}
+  /* One got past you: the paper goes dark for a beat, so a breach is felt
+     on the desk and not only in the lane. */
+  #paper.breached{animation:breached .55s ease-out}
+  @keyframes breached{
+    0%{filter:brightness(1)}
+    18%{filter:brightness(.45) saturate(.7)}
+    100%{filter:brightness(1)}
+  }
   @keyframes shake{25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
   #target{position:absolute;inset:0}
   #gloss{margin-bottom:10px;text-align:center;min-height:52px;display:flex;flex-direction:column;justify-content:flex-end}
@@ -172,6 +188,9 @@
     background:transparent;color:var(--bone);border:1px solid #46545E;border-radius:2px;
   }
   .chips button[aria-pressed="true"]{background:var(--paper);color:var(--ink);border-color:var(--paper);font-weight:600}
+  .setting.preset{margin-top:18px}
+  .setting.preset .chips button{padding:11px 4px;font-size:14px}
+  .setting.preset .chips button[aria-pressed="true"]{background:var(--jade);border-color:var(--jade);color:var(--ink-deep)}
   .chips button:focus-visible{outline:2px solid var(--jade);outline-offset:2px}
   .primary{
     margin-top:22px;padding:14px 30px;font:inherit;font-size:17px;font-weight:600;
@@ -324,7 +343,7 @@
     </div>
   </header>
   <div id="probePanel"><div id="probeHead"><span id="probeTitle">stroke probe</span><button id="probeFold" type="button">hide</button><button id="probeCopy" type="button">copy</button><button id="probeClear" type="button">clear</button></div><div id="probeLog"></div></div>
-  <section id="lane"><div id="banner"><span class="comp"></span><span class="lbl"></span></div></section>
+  <section id="lane"><div id="banner"><span class="comp"></span><span class="lbl"></span><span class="hint"></span></div></section>
   <div id="ver"></div>
   <section id="deck">
     <div id="gloss"><span id="pinyin"></span><span id="meaning"></span><span id="progress"></span><button id="skip" class="skip off" type="button">Skip this character</button></div>
@@ -336,6 +355,13 @@
   <h1><span class="zh">笔阵</span>Ink Strike</h1>
   <span id="vtag"></span>
   <p>Characters come at you in waves that share a radical. Write each one before it reaches the desk — stroke order and direction both count. Every third wave sends back the ones you keep dropping.</p>
+
+  <div class="setting preset"><span>Start from a preset, then change anything you like</span>
+    <div class="chips" id="setPreset">
+      <button type="button" data-v="beginner">Beginner</button>
+      <button type="button" data-v="advanced">Advanced</button>
+    </div>
+  </div>
 
   <div class="settings">
   <div class="setting"><span>Vocabulary</span>
@@ -486,6 +512,46 @@
      words:[["妈妈","mā ma","mum",1],["姐姐","jiě jie","elder sister",1],["开始","kāi shǐ","to begin",2]]}
   ];
 
+  /* ---------- stroke-order rules, shown with each wave ----------
+     Tiered by the vocabulary chip: HSK 1-2 gets the four rules that cover
+     most characters, 3 adds enclosures and radicals, 4 the awkward ones. A
+     level sees its own tier and everything below it. */
+  const HINTS = {
+    2:[
+      "Top to bottom, left to right — that order alone gets most characters right.",
+      "Horizontal before vertical: 十 is 一 then 丨.",
+      "A left-falling 丿 comes before a right-falling ㇏ — 人 starts on the left.",
+      "Centre before the sides: 小 begins in the middle.",
+      "Dots on top go down first: 主 starts with the dot."
+    ],
+    3:[
+      "Outside before inside: build the frame of 同, then fill it.",
+      "Close the box last — 国 gets its bottom line only once the inside is done.",
+      "The radical leads: 氵 before the rest of 河.",
+      "A vertical that pierces the whole character is written last: the 丨 of 中.",
+      "Bottom horizontals that carry the character come last, as in 王."
+    ],
+    4:[
+      "辶 walks last — write everything it carries, then the sweep beneath it.",
+      "Inside first, then seal: 回 fills before it closes.",
+      "A stray dot on the right waits until the end — 犬 is 大 then the dot.",
+      "Enclosures that open at the bottom (门, 冂) go top, left, then right.",
+      "When two components stack, finish the upper one completely first."
+    ]
+  };
+  let hintAt = 0;
+  function hintPool(){
+    let out = HINTS[2];
+    if(S.level >= 3) out = out.concat(HINTS[3]);
+    if(S.level >= 4) out = out.concat(HINTS[4]);
+    return out;
+  }
+  function nextHint(){
+    const pool = hintPool();
+    hintAt = (hintAt + 1) % pool.length;
+    return pool[hintAt];
+  }
+
   /* ---------- config ---------- */
   const MARCH_BASE=32000, MARCH_FLOOR=17000, SPAWN_BASE=7000, SPAWN_FLOOR=4200;
   const PACES=[
@@ -504,12 +570,12 @@
   const S = {
     score:0, streak:0, mult:1, foes:[], running:false, paused:false, t:0, spawnAt:0,
     writer:null, cleanChar:true, id:0,
-    wave:0, waveLeft:0, group:null, lastGroup:null, review:false,
+    wave:0, waveLeft:0, group:null, lastGroup:null, review:false, recent:[],
     level:4, mode:"trace", pace:2, tol:2.4, curChar:"", side:0, strokeIdx:0, strokeMisses:0, sound:false
   };
   const STATS = Object.create(null);   // char -> record, session only
   const VERSION = "1.0-rc1";
-  const BUILD = "v48";        // lineage, so a pasted probe log still says which build
+  const BUILD = "v52";        // lineage, so a pasted probe log still says which build
   let PROBE = false;                   // toggle from the trouble list
 
   let drawPts = [], drawT0 = 0, inkSrc = null, judged = false;
@@ -578,6 +644,17 @@
 
   /* Events that move the paper or rebuild the character, in the same log as
      the strokes, so cause and effect sit next to each other. */
+  /* Every chip that changes how a stroke is judged, in one line - so a
+     pasted log says what it was played on without having to be asked. */
+  const TOL_NAME = {"2.4":"Forgiving", "1.6":"Relaxed", "1":"Exact", "1.0":"Exact"};
+  function settingsLine(){
+    return "HSK 1-" + S.level
+         + " · " + (S.mode === "trace" ? "trace" : "blank")
+         + " · matching " + (TOL_NAME[String(S.tol)] || S.tol)
+         + " · " + PACES[S.pace].name
+         + " · shape check " + (GATE ? "on" : "off");
+  }
+
   function probeNote(text){
     probeLines.push({sys:true, ok:true, text:"\u2014 " + text + " \u2014"});
     if(probeLines.length > 200) probeLines.shift();
@@ -804,15 +881,47 @@
       fn(b.dataset.v);
     });
   }
-  wireChips("setLevel", v=>S.level=+v);
-  wireChips("setMode",  v=>S.mode=v);
-  wireChips("setTol",   v=>S.tol=+v);
-  wireChips("setPace",  v=>{S.pace=+v; applyPace();});
+  /* Every difficulty chip hard left, or every one hard right. The chips stay
+     live afterwards - a preset is a starting point, not a mode - so the
+     preset un-presses itself the moment the settings stop matching it. */
+  const PRESETS = {
+    beginner:{level:2, mode:"trace", tol:2.4, pace:0},
+    advanced:{level:4, mode:"blank", tol:1.0, pace:4}
+  };
+  const sameVal = (a,b)=> (isFinite(+a) && isFinite(+b)) ? +a === +b : String(a) === String(b);
+  function setChip(id, val){
+    const box = document.getElementById(id);
+    if(!box) return;
+    [...box.querySelectorAll("button")].forEach(b=>b.setAttribute("aria-pressed", sameVal(b.dataset.v, val)));
+  }
+  function syncPreset(){
+    const box = document.getElementById("setPreset");
+    if(!box) return;
+    [...box.querySelectorAll("button")].forEach(b=>{
+      const p = PRESETS[b.dataset.v];
+      b.setAttribute("aria-pressed", !!p && p.level === S.level && p.mode === S.mode
+                                     && p.tol === S.tol && p.pace === S.pace);
+    });
+  }
+  function applyPreset(name){
+    const p = PRESETS[name];
+    if(!p) return;
+    S.level = p.level; S.mode = p.mode; S.tol = p.tol; S.pace = p.pace;
+    setChip("setLevel", p.level); setChip("setMode", p.mode);
+    setChip("setTol", p.tol);     setChip("setPace", p.pace);
+    applyPace(); syncPreset(); probeNote("preset: " + name + " — " + settingsLine());
+  }
+  wireChips("setPreset", v=>applyPreset(v));
+  wireChips("setLevel", v=>{S.level=+v; syncPreset(); probeNote(settingsLine());});
+  wireChips("setMode",  v=>{S.mode=v;   syncPreset(); probeNote(settingsLine());});
+  wireChips("setTol",   v=>{S.tol=+v;   syncPreset(); probeNote(settingsLine());});
+  wireChips("setPace",  v=>{S.pace=+v; applyPace(); syncPreset(); probeNote(settingsLine());});
 
   elPace.addEventListener("click", ()=>{
     S.pace=(S.pace+1)%PACES.length; applyPace();
     const box=document.getElementById("setPace");
     [...box.querySelectorAll("button")].forEach(b=>b.setAttribute("aria-pressed", +b.dataset.v===S.pace));
+    syncPreset();
   });
 
   function applyPace(){
@@ -850,8 +959,9 @@
     banner.querySelector(".lbl").textContent = S.review
       ? "wave "+S.wave+" · the ones you keep dropping"
       : "wave "+S.wave+" · "+S.group.name;
+    banner.querySelector(".hint").textContent = nextHint();
     banner.classList.add("show");
-    setTimeout(()=>banner.classList.remove("show"), 1700);
+    setTimeout(()=>banner.classList.remove("show"), 2600);   // long enough to read the rule
   }
 
   function marchFor(big){
@@ -869,12 +979,36 @@
       if(!pool.length) return {row:[pick(eligible(pickGroup()).chars)[0]], big:false};
       // weight by how shaky it is
       const bag=[]; pool.forEach(r=>{ const n=Math.min(4,Math.ceil(r.w/2)); for(let i=0;i<n;i++) bag.push(r); });
-      const r = pick(bag);
+      let r = pick(bag);
+      if(pool.length > 1 && r.ch === S.recent[S.recent.length-1]){
+        const other = bag.filter(x=>x.ch !== r.ch);
+        if(other.length) r = pick(other);
+      }
+      S.recent.push(r.ch);
+      while(S.recent.length > 3) S.recent.shift();
       return {row:[r.ch, r.py, r.gl, 0], big:false};
     }
     const pool = eligible(S.group);
     const big = pool.words.length && Math.random() < BIG_CHANCE;
-    return {row: big ? pick(pool.words) : pick(pool.chars), big};
+    return {row: pickFresh(big ? pool.words : pool.chars), big};
+  }
+  /* Picking at random from a ten-character pool deals the same character
+     three times in one wave. Skip whatever you have just seen, and among
+     what is left prefer the ones you have written least - a seal should
+     mean you see that character less, not exactly as often. */
+  function pickFresh(rows){
+    if(!rows.length) return rows[0];
+    if(rows.length < 2){ return rows[0]; }
+    const fresh = rows.filter(r=>S.recent.indexOf(r[0]) < 0);
+    const from = fresh.length ? fresh : rows;
+    const doneOf = r=>{ const st = STATS[Array.from(r[0])[0]]; return st ? st.done : 0; };
+    let least = Infinity;
+    from.forEach(r=>{ const d = doneOf(r); if(d < least) least = d; });
+    const bag = from.filter(r=>doneOf(r) <= least + 1);
+    const row = pick(bag.length ? bag : from);
+    S.recent.push(row[0]);
+    while(S.recent.length > Math.max(2, Math.min(5, rows.length - 1))) S.recent.shift();
+    return row;
   }
 
   function makeFoe(){
@@ -968,6 +1102,12 @@
     bar.classList.add("up"); setTimeout(()=>bar.classList.remove("up"), 500);
   }
 
+  function dimPaper(){
+    paper.classList.remove("breached"); void paper.offsetWidth;
+    paper.classList.add("breached");
+    setTimeout(()=>paper.classList.remove("breached"), 600);
+  }
+
   function settle(){
     target.classList.remove("settle"); void target.offsetWidth;
     target.classList.add("settle");
@@ -989,7 +1129,7 @@
     S.foes.length = 0;
     activeFoe = null; mountedFoe = null;
     S.score = 0; S.streak = 0; S.mult = 1; S.t = 0; last = 0; S.spawnAt = 0;
-    S.wave = 0; S.waveLeft = 0; S.group = null; S.lastGroup = null; S.review = false;
+    S.wave = 0; S.waveLeft = 0; S.group = null; S.lastGroup = null; S.review = false; S.recent.length = 0;
     S.strokeIdx = 0; S.strokeMisses = 0; S.curChar = ""; gateKills = {};
     elScoreNum.textContent = "0"; setMult();
     elPinyin.textContent = ""; elMeaning.textContent = ""; elProg.textContent = "";
@@ -1010,7 +1150,7 @@
     if(!foe) return;
     const ch = foe.chars[foe.idx];
     const r = rec(ch); r.breach++; r.w += W_BREACH; refreshFlag();
-    penalise(true);
+    penalise(true); dimPaper();
     if(S.writer){ try{ S.writer.cancelQuiz(); }catch(e){} }
     target.innerHTML = ""; showSkip(false);
     removeFoe(foe, "breach");
@@ -1117,7 +1257,14 @@
           }, HOLD_DONE);
         }else{
           refreshGloss(foe);
-          setTimeout(()=>mountChar(foe), HOLD_DONE);
+          setTimeout(()=>{
+            /* A two-character foe can breach, or be skipped, during the 700ms
+               its first character is held on the paper. Mounting its second
+               character after that leaves the paper showing a character the
+               lane no longer has - which is the mismatch in blank mode. */
+            if(!S.running || foe !== activeFoe || S.foes.indexOf(foe) < 0) return;
+            mountChar(foe);
+          }, HOLD_DONE);
         }
       }
     });
@@ -1158,7 +1305,12 @@
       probeNote("lane empty, next foe pulled forward");
     }
     const newest = S.foes.length ? S.foes[S.foes.length-1] : null;
-    const roomAtTop = !newest || (S.t - newest.born) > 1600;
+    /* Time alone is the wrong test for "is there room up there". On No clock
+       nothing advances, so a foe that is 1.6s old is still sitting exactly
+       where the next one would appear - which is how three of them ended up
+       stacked on top of each other. Ask how far it has actually travelled. */
+    const newestP = newest ? (S.t - newest.born - (newest.hold||0))/newest.dur : 1;
+    const roomAtTop = !newest || (newestP > 0.16 && (S.t - newest.born) > 1600);
     if(S.waveLeft > 0 && S.t >= S.spawnAt && roomAtTop){
       if(S.foes.length < MAX_LANE){ S.spawnAt = S.t + spawnGap(); S.waveLeft--; makeFoe(); }
       else S.spawnAt = S.t + 700;
@@ -1174,6 +1326,8 @@
         const ch = foe.chars[foe.idx];
         const r = rec(ch); r.breach++; r.w += W_BREACH; refreshFlag();
         removeFoe(foe, "breach"); penalise(true);
+        dimPaper();
+        if(foe === mountedFoe) mountedFoe = null;
         if(wasActive){
           if(S.writer){ try{ S.writer.cancelQuiz(); }catch(e){} }
           target.innerHTML = ""; activeFoe = null;
@@ -1605,10 +1759,10 @@
        stopping a third of the way through is not a tolerance matter - and
        the five-kill escape still steps out of the way if it is wrong. */
     const refPts = refPtsPx(i);
+    const sideNow = S.side || paper.clientWidth || 0;
     if(refPts && refPts.length > 1 && drawPts.length > 1 && refPx > 80){
       v.endGap = dist(drawPts[drawPts.length-1], refPts[refPts.length-1]);
-      const side = S.side || paper.clientWidth || 0;
-      if(side && v.endGap > GATE_STOP*side) v.kill = v.kill || "stop";
+      if(sideNow && v.endGap > GATE_STOP*sideNow) v.kill = v.kill || "stop";
     }
     if(v.kill){ /* already decided */ }
     else if(v.ratio > GATE_RATIO*R && (dL - refPx) > GATE_SLACK*R) v.kill = v.kill || "long";
@@ -1620,6 +1774,15 @@
     else if(v.ratio < GATE_SHORT/R && (refPx - dL) > GATE_SLACK2*R
             && (k.tag === "hook" || v.ratio < GATE_STUB
                 || (v.dA != null && v.dA > GATE_OFFAXIS))) v.kill = v.kill || "short";
+    /* Two near-misses are not a near-miss. 步 #0 was drawn at 48% of its
+       reference, 40px off centre and stopping 30px short, and every rule
+       let it through because each signal on its own sat a few pixels under
+       its own threshold. Well under length AND in the wrong place is the
+       wrong stroke. First try only, so it can never trap you in a loop. */
+    else if(!relax && v.ratio != null && v.ratio < GATE_SHORT && sideNow
+            && ((v.off != null && v.off > 0.08*gateSlack()*sideNow)
+             || (v.endGap != null && v.endGap > 0.10*gateSlack()*sideNow)))
+      v.kill = v.kill || "weak";
     /* Summed turning alone is not evidence. A slow, shaky drag down a
        straight reference piles up 200 degrees of it with no corner in sight -
        that is a finger, not a different stroke. Ask for both: far more
@@ -1761,7 +1924,7 @@
     document.getElementById("probeFold").addEventListener("click", toggleFold);
     document.getElementById("probeClear").addEventListener("click", ()=>{ probeLines.length=0; renderProbe(); });
     document.getElementById("probeCopy").addEventListener("click", async ()=>{
-      const t = ["ink strike " + STAMP].concat(probeLines.map(l=>l.text)).join("\n");
+      const t = ["ink strike " + STAMP, settingsLine()].concat(probeLines.map(l=>l.text)).join("\n");
       try{ await navigator.clipboard.writeText(t); }catch(e){
         const ta=document.createElement("textarea"); ta.value=t; document.body.appendChild(ta);
         ta.select(); try{document.execCommand("copy");}catch(_){} ta.remove();
@@ -1822,6 +1985,7 @@
       go.disabled = false; return;
     }
     veil.classList.add("hidden");
+    probeNote(settingsLine());
     S.running = true; S.t = 0; last = 0;
     applyPace(); setMult(); refreshFlag(); nextWave();
     startLoop();
@@ -1832,10 +1996,11 @@
   $("#gateToggle").addEventListener("click", ()=>{
     GATE = !GATE;
     $("#gateToggle").textContent = "Shape check: " + (GATE ? "on" : "off");
+    probeNote(settingsLine());
   });
   $("#probeToggle").addEventListener("click", ()=>setProbe(!PROBE));
   $("#soundToggle").addEventListener("click", ()=>setSound(!S.sound));
-  setProbe(true, false); setSound(false); loadSamples();
+  setProbe(true, false); setSound(false); loadSamples(); syncPreset();
 
   applyPace();
 })();
