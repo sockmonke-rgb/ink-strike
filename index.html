@@ -183,8 +183,11 @@
   .setting{margin-top:14px;width:100%;max-width:340px}
   .setting > span{display:block;font-size:12px;color:var(--bone);margin-bottom:6px}
   .chips{display:flex;gap:6px;justify-content:center}
+  /* Five vocabulary chips share one 340px row, so they run a size smaller
+     than the other groups rather than clip. */
+  #setLevel button{font-size:12px;letter-spacing:-.01em;padding:9px 2px}
   .chips button{
-    flex:1;font:inherit;font-size:13px;padding:9px 4px;cursor:pointer;
+    flex:1;min-width:0;font:inherit;font-size:13px;padding:9px 4px;cursor:pointer;white-space:nowrap;
     background:transparent;color:var(--bone);border:1px solid #46545E;border-radius:2px;
   }
   .chips button[aria-pressed="true"]{background:var(--paper);color:var(--ink);border-color:var(--paper);font-weight:600}
@@ -369,6 +372,8 @@
       <button type="button" data-v="2">HSK 1–2</button>
       <button type="button" data-v="3">HSK 1–3</button>
       <button type="button" data-v="4" aria-pressed="true">HSK 1–4</button>
+      <button type="button" data-v="5">HSK 1–5</button>
+      <button type="button" data-v="6">HSK 1–6</button>
     </div>
   </div>
   <div class="setting"><span>Writing</span>
@@ -391,6 +396,12 @@
       <button type="button" data-v="2" aria-pressed="true">Calm</button>
       <button type="button" data-v="3">Steady</button>
       <button type="button" data-v="4">Brisk</button>
+    </div>
+  </div>
+  <div class="setting"><span>Writing square — <b>Large</b> gives the paper more of the screen and the lane less. Remembered on this device.</span>
+    <div class="chips" id="setPaper">
+      <button type="button" data-v="normal" aria-pressed="true">Normal</button>
+      <button type="button" data-v="large">Large</button>
     </div>
   </div>
   </div>
@@ -418,103 +429,226 @@
 (function(){
   "use strict";
 
-  /* ---------- content: grouped by shared component, HSK 1–4 ---------- */
+  /* ---------- content: grouped by shared component, HSK 1–6 ----------
+     The number on each row is the HSK 2.0 level of the first word the
+     character turns up in, give or take - it only decides which chip
+     lets it in. A group is dealt once at least four of its characters
+     are in, so fire and flesh arrive at 1–3 and sickness at 1–5. */
   const GROUPS = [
     {comp:"氵", name:"water", chars:[
       ["汉","hàn","Han / Chinese",1],["没","méi","not have",1],["洗","xǐ","to wash",2],
       ["游","yóu","to swim, to roam",2],["海","hǎi","sea",3],["河","hé","river",3],
       ["渴","kě","thirsty",3],["清","qīng","clear",3],["汤","tāng","soup",3],
-      ["满","mǎn","full",4],["深","shēn","deep",4]],
-     words:[["游泳","yóu yǒng","to swim",2],["洗澡","xǐ zǎo","to bathe",3],["清楚","qīng chu","clear",3]]},
+      ["满","mǎn","full",4],["深","shēn","deep",4],
+      ["浅","qiǎn","shallow",5],["淡","dàn","light, weak (of taste)",5],["滑","huá","slippery",5],
+      ["浓","nóng","thick, dense",5],["湿","shī","wet",5],["涨","zhǎng","to rise (prices, water)",5],
+      ["洞","dòng","hole, cave",5],["滴","dī","a drop; to drip",5],["泪","lèi","tears",5],
+      ["沉","chén","to sink; heavy",5],["渗","shèn","to seep",6],["溅","jiàn","to splash",6],
+      ["浸","jìn","to soak",6],["潜","qián","hidden; to dive",6],["滋","zī","to nourish",6],
+      ["溶","róng","to dissolve",6],["澄","chéng","clear (of water)",6]],
+     words:[["游泳","yóu yǒng","to swim",2],["洗澡","xǐ zǎo","to bathe",3],["清楚","qīng chu","clear",3],
+     ["沉默","chén mò","silent",5],["浪漫","làng màn","romantic",5],["潮湿","cháo shī","damp",5],
+     ["渗透","shèn tòu","to permeate",6],["泛滥","fàn làn","to flood",6]]},
 
     {comp:"扌", name:"hand", chars:[
       ["打","dǎ","to hit",1],["找","zhǎo","to look for",2],["换","huàn","to change",3],
       ["接","jiē","to receive",3],["排","pái","to arrange",3],["提","tí","to lift, to raise",3],
       ["推","tuī","to push",4],["拉","lā","to pull",4],["抬","tái","to lift",4],
-      ["抱","bào","to hug",4],["掉","diào","to drop",4]],
-     words:[["提高","tí gāo","to raise",3],["打扮","dǎ ban","to dress up",4],["抱歉","bào qiàn","to be sorry",4]]},
+      ["抱","bào","to hug",4],["掉","diào","to drop",4],
+      ["抓","zhuā","to grab",5],["摸","mō","to touch, to feel",5],["抢","qiǎng","to snatch",5],
+      ["捡","jiǎn","to pick up",5],["摇","yáo","to shake",5],["挡","dǎng","to block",5],
+      ["插","chā","to insert",5],["挪","nuó","to shift, to move",6],["撕","sī","to tear",6],
+      ["搓","cuō","to rub",6]],
+     words:[["提高","tí gāo","to raise",3],["打扮","dǎ ban","to dress up",4],["抱歉","bào qiàn","to be sorry",4],
+     ["发挥","fā huī","to bring into play",5],["抓紧","zhuā jǐn","to make the most of",5],
+     ["挣扎","zhēng zhá","to struggle",6],["拼搏","pīn bó","to go all out",6]]},
 
     {comp:"口", name:"mouth", chars:[
       ["吃","chī","to eat",1],["叫","jiào","to call",1],["吗","ma","question particle",1],
       ["喝","hē","to drink",1],["呢","ne","particle",1],["唱","chàng","to sing",2],
-      ["哭","kū","to cry",3],["咳","ké","to cough",4],["咸","xián","salty",4],["味","wèi","taste",4]],
-     words:[["吃饭","chī fàn","to eat a meal",1],["咖啡","kā fēi","coffee",2],["唱歌","chàng gē","to sing",2]]},
+      ["哭","kū","to cry",3],["咳","ké","to cough",4],["咸","xián","salty",4],["味","wèi","taste",4],
+      ["吵","chǎo","noisy; to quarrel",5],["咬","yǎo","to bite",5],["吐","tǔ","to spit",5],
+      ["喊","hǎn","to shout",5],["嗓","sǎng","throat, voice",5],["呼","hū","to exhale; to call",5],
+      ["叹","tàn","to sigh",5],["嘲","cháo","to mock",6],["吞","tūn","to swallow",6],
+      ["嘱","zhǔ","to instruct",6],["喧","xuān","noisy, clamorous",6]],
+     words:[["吃饭","chī fàn","to eat a meal",1],["咖啡","kā fēi","coffee",2],["唱歌","chàng gē","to sing",2],
+     ["呼吸","hū xī","to breathe",5],["嗓子","sǎng zi","throat, voice",5],
+     ["嘲笑","cháo xiào","to ridicule",6],["嘱咐","zhǔ fù","to exhort",6],["哆嗦","duō suo","to tremble",6]]},
 
     {comp:"木", name:"tree", chars:[
       ["机","jī","machine",1],["校","xiào","school",1],["果","guǒ","fruit",1],
       ["椅","yǐ","chair",2],["板","bǎn","board",3],["极","jí","extremely",3],
-      ["树","shù","tree",3],["林","lín","woods",4],["森","sēn","forest",4],["桥","qiáo","bridge",4]],
-     words:[["学校","xué xiào","school",1],["机会","jī huì","opportunity",3],["森林","sēn lín","forest",4]]},
+      ["树","shù","tree",3],["林","lín","woods",4],["森","sēn","forest",4],["桥","qiáo","bridge",4],
+      ["构","gòu","to construct",5],["析","xī","to analyse",5],["植","zhí","to plant",5],
+      ["柜","guì","cabinet",5],["梳","shū","comb",5],["模","mó","model, pattern",5],
+      ["核","hé","core, nucleus",6],["榜","bǎng","list of names",6],["横","héng","horizontal",6],
+      ["朴","pǔ","plain, simple",6]],
+     words:[["学校","xué xiào","school",1],["机会","jī huì","opportunity",3],["森林","sēn lín","forest",4],
+     ["植物","zhí wù","plant",5],["分析","fēn xī","to analyse",5],["模仿","mó fǎng","to imitate",5],
+     ["核心","hé xīn","core",6],["榜样","bǎng yàng","role model",6]]},
 
     {comp:"忄心", name:"heart", chars:[
       ["想","xiǎng","to think",1],["忙","máng","busy",2],["快","kuài","fast",2],
       ["慢","màn","slow",2],["意","yì","meaning",2],["怕","pà","to fear",3],
-      ["情","qíng","feeling",3],["感","gǎn","to feel",3],["忘","wàng","to forget",3],["愿","yuàn","willing",4]],
-     words:[["忘记","wàng jì","to forget",3],["心情","xīn qíng","mood",4],["感情","gǎn qíng","feelings",4]]},
+      ["情","qíng","feeling",3],["感","gǎn","to feel",3],["忘","wàng","to forget",3],["愿","yuàn","willing",4],
+      ["悄","qiāo","quiet",5],["恨","hèn","to hate",5],["慌","huāng","flustered",5],
+      ["忍","rěn","to endure",5],["悲","bēi","sad",5],["愤","fèn","indignant",5],
+      ["愧","kuì","ashamed",5],["惦","diàn","to keep thinking of",6],["惧","jù","to fear",6],
+      ["忧","yōu","to worry",6],["惕","tì","wary",6]],
+     words:[["忘记","wàng jì","to forget",3],["心情","xīn qíng","mood",4],["感情","gǎn qíng","feelings",4],
+     ["悄悄","qiāo qiāo","quietly",5],["惭愧","cán kuì","ashamed",5],["愤怒","fèn nù","angry",5],
+     ["慷慨","kāng kǎi","generous",6],["惦记","diàn jì","to keep in mind",6]]},
 
     {comp:"讠", name:"speech", chars:[
       ["说","shuō","to speak",1],["话","huà","speech",1],["请","qǐng","please",1],
       ["谢","xiè","to thank",1],["语","yǔ","language",1],["试","shì","to try",2],
       ["课","kè","lesson",2],["认","rèn","to recognise",3],["记","jì","to record",3],
-      ["词","cí","word",3],["讲","jiǎng","to speak",3]],
-     words:[["说话","shuō huà","to talk",1],["谢谢","xiè xie","thank you",1],["认真","rèn zhēn","conscientious",4]]},
+      ["词","cí","word",3],["讲","jiǎng","to speak",3],
+      ["询","xún","to inquire",5],["谓","wèi","to call, to say",5],["诊","zhěn","to examine (a patient)",5],
+      ["谨","jǐn","cautious",5],["谦","qiān","modest",5],["谣","yáo","rumour",6],
+      ["诱","yòu","to lure",6],["谴","qiǎn","to condemn",6],["讽","fěng","to satirise",6],
+      ["谬","miù","absurd",6]],
+     words:[["说话","shuō huà","to talk",1],["谢谢","xiè xie","thank you",1],["认真","rèn zhēn","conscientious",4],
+     ["谦虚","qiān xū","modest",5],["谨慎","jǐn shèn","cautious",5],["诊断","zhěn duàn","diagnosis",5],
+     ["讽刺","fěng cì","to satirise",6],["谴责","qiǎn zé","to condemn",6],["荒谬","huāng miù","absurd",6]]},
 
     {comp:"纟", name:"silk", chars:[
       ["红","hóng","red",2],["给","gěi","to give",2],["经","jīng","to pass through",2],
       ["练","liàn","to practise",3],["绿","lǜ","green",3],["结","jié","knot",4],
-      ["纸","zhǐ","paper",4],["续","xù","to continue",4]],
-     words:[["经过","jīng guò","to pass by",3],["练习","liàn xí","to practise",3],["结婚","jié hūn","to marry",3]]},
+      ["纸","zhǐ","paper",4],["续","xù","to continue",4],
+      ["绳","shéng","rope",5],["编","biān","to weave; to edit",5],["织","zhī","to weave",5],
+      ["纷","fēn","numerous, confused",5],["缩","suō","to shrink",5],["纯","chún","pure",5],
+      ["纠","jiū","to correct; to entangle",5],["缠","chán","to wind around",6],["缓","huǎn","slow; to ease",6],
+      ["绑","bǎng","to tie",6],["绽","zhàn","to burst open",6]],
+     words:[["经过","jīng guò","to pass by",3],["练习","liàn xí","to practise",3],["结婚","jié hūn","to marry",3],
+     ["组织","zǔ zhī","organisation",5],["纷纷","fēn fēn","one after another",5],["缩短","suō duǎn","to shorten",5],
+     ["缓解","huǎn jiě","to relieve",6],["绽放","zhàn fàng","to bloom",6]]},
 
     {comp:"日", name:"sun", chars:[
       ["明","míng","bright",1],["星","xīng","star",1],["昨","zuó","yesterday",1],
       ["早","zǎo","early",2],["时","shí","time",2],["晚","wǎn","late",2],
-      ["晴","qíng","clear sky",2],["春","chūn","spring",3],["暖","nuǎn","warm",4]],
-     words:[["时间","shí jiān","time",2],["春天","chūn tiān","spring",3],["明星","míng xīng","a star",4]]},
+      ["晴","qíng","clear sky",2],["春","chūn","spring",3],["暖","nuǎn","warm",4],
+      ["晒","shài","to dry in the sun",5],["暗","àn","dark",5],["智","zhì","wisdom",5],
+      ["晕","yūn","dizzy",5],["映","yìng","to reflect",5],["暂","zàn","temporary",5],
+      ["昂","áng","high; to hold up (the head)",6],["旺","wàng","prosperous",6],["晰","xī","distinct",6],
+      ["曙","shǔ","daybreak",6],["旷","kuàng","vast; to skip (class)",6]],
+     words:[["时间","shí jiān","time",2],["春天","chūn tiān","spring",3],["明星","míng xīng","a star",4],
+     ["暂时","zàn shí","for the time being",5],["智慧","zhì huì","wisdom",5],["反映","fǎn yìng","to reflect",5],
+     ["清晰","qīng xī","distinct",6],["曙光","shǔ guāng","dawn light",6]]},
 
     {comp:"辶", name:"movement", chars:[
       ["这","zhè","this",1],["过","guò","to pass",2],["还","hái","still",2],
       ["送","sòng","to send",2],["近","jìn","near",2],["进","jìn","to enter",2],
       ["远","yuǎn","far",2],["边","biān","side",3],["迎","yíng","to welcome",3],
-      ["迟","chí","late",4],["遍","biàn","time (measure)",4]],
-     words:[["附近","fù jìn","nearby",3],["欢迎","huān yíng","to welcome",3],["迟到","chí dào","to be late",4]]},
+      ["迟","chí","late",4],["遍","biàn","time (measure)",4],
+      ["逃","táo","to flee",5],["追","zhuī","to chase",5],["逐","zhú","to pursue; one by one",5],
+      ["迫","pò","to force",5],["递","dì","to hand over",5],["避","bì","to avoid",5],
+      ["遵","zūn","to obey",5],["遭","zāo","to meet with",6],["遥","yáo","distant",6],
+      ["迈","mài","to stride",6],["遮","zhē","to cover",6]],
+     words:[["附近","fù jìn","nearby",3],["欢迎","huān yíng","to welcome",3],["迟到","chí dào","to be late",4],
+     ["逻辑","luó jí","logic",5],["迅速","xùn sù","rapid",5],["遗憾","yí hàn","regret",5],
+     ["遭遇","zāo yù","to encounter",6],["遥远","yáo yuǎn","remote",6]]},
 
     {comp:"宀", name:"roof", chars:[
       ["家","jiā","home",1],["完","wán","to finish",2],["室","shì","room",2],
       ["安","ān","peace",3],["客","kè","guest",3],["定","dìng","to fix",3],
-      ["空","kōng","empty",4],["富","fù","rich",4],["宿","sù","to stay overnight",4]],
-     words:[["完成","wán chéng","to complete",3],["客人","kè rén","guest",3],["安静","ān jìng","quiet",3]]},
+      ["空","kōng","empty",4],["富","fù","rich",4],["宿","sù","to stay overnight",4],
+      ["宽","kuān","wide",5],["宣","xuān","to declare",5],["宴","yàn","banquet",5],
+      ["宝","bǎo","treasure",5],["宠","chǒng","to dote on",5],["寂","jì","silent, lonely",5],
+      ["寞","mò","lonely",5],["宇","yǔ","space, universe",5],["宙","zhòu","time, eternity",5],
+      ["宏","hóng","grand",6],["宪","xiàn","constitution",6]],
+     words:[["完成","wán chéng","to complete",3],["客人","kè rén","guest",3],["安静","ān jìng","quiet",3],
+     ["寂寞","jì mò","lonely",5],["宇宙","yǔ zhòu","universe",5],["宠物","chǒng wù","pet",5],
+     ["宣传","xuān chuán","publicity",5],["宏观","hóng guān","macro",6]]},
 
     {comp:"⻊", name:"foot", chars:[
       ["跑","pǎo","to run",2],["路","lù","road",2],["跳","tiào","to jump",3],
-      ["踢","tī","to kick",3],["跟","gēn","to follow",3]],
-     words:[["跑步","pǎo bù","to run",2],["跳舞","tiào wǔ","to dance",2],["路口","lù kǒu","intersection",3]]},
+      ["踢","tī","to kick",3],["跟","gēn","to follow",3],
+      ["蹲","dūn","to squat",5],["践","jiàn","to carry out",5],["跃","yuè","to leap",5],
+      ["踩","cǎi","to step on",5],["跪","guì","to kneel",6],["跨","kuà","to stride across",6],
+      ["踪","zōng","trace, footprint",6],["蹈","dǎo","to tread",6]],
+     words:[["跑步","pǎo bù","to run",2],["跳舞","tiào wǔ","to dance",2],["路口","lù kǒu","intersection",3],
+     ["实践","shí jiàn","practice",5],["活跃","huó yuè","active",5],
+     ["跟踪","gēn zōng","to track",6],["舞蹈","wǔ dǎo","dance",6]]},
 
     {comp:"雨", name:"rain", chars:[
       ["零","líng","zero",1],["雪","xuě","snow",2],["需","xū","to need",3],
-      ["雷","léi","thunder",4],["雾","wù","fog",4]],
-     words:[["下雪","xià xuě","to snow",2],["需要","xū yào","to need",3]]},
+      ["雷","léi","thunder",4],["雾","wù","fog",4],
+      ["震","zhèn","to shake",5],["露","lù","dew; to show",5],["霉","méi","mould",5],
+      ["霜","shuāng","frost",6],["霸","bà","tyrant",6]],
+     words:[["下雪","xià xuě","to snow",2],["需要","xū yào","to need",3],
+     ["地震","dì zhèn","earthquake",5],["倒霉","dǎo méi","unlucky",5],
+     ["震惊","zhèn jīng","to shock",6],["霸道","bà dào","overbearing",6]]},
 
     {comp:"艹", name:"grass", chars:[
       ["茶","chá","tea",1],["菜","cài","dish, vegetable",1],["花","huā","flower",3],
       ["药","yào","medicine",3],["蓝","lán","blue",3],["草","cǎo","grass",3],
-      ["节","jié","festival, node",3],["苦","kǔ","bitter",4]],
-     words:[["节目","jié mù","programme",3],["花园","huā yuán","garden",4]]},
+      ["节","jié","festival, node",3],["苦","kǔ","bitter",4],
+      ["蔬","shū","vegetables",5],["葡","pú","grape (first half)",5],["萄","táo","grape (second half)",5],
+      ["薄","báo","thin",5],["营","yíng","camp; to operate",5],["落","luò","to fall",5],
+      ["藏","cáng","to hide",5],["蒸","zhēng","to steam",6],["萌","méng","to sprout",6],
+      ["薪","xīn","salary",6],["茫","máng","vast, boundless",6],["蕴","yùn","to contain",6]],
+     words:[["节目","jié mù","programme",3],["花园","huā yuán","garden",4],
+     ["蔬菜","shū cài","vegetables",5],["葡萄","pú tao","grape",5],["营养","yíng yǎng","nutrition",5],
+     ["蓬勃","péng bó","vigorous",6],["薪水","xīn shui","salary",6]]},
 
     {comp:"钅", name:"metal", chars:[
       ["钱","qián","money",2],["钟","zhōng","clock",2],["错","cuò","wrong",2],
-      ["银","yín","silver",3],["铁","tiě","iron",4],["镜","jìng","mirror",4]],
-     words:[["银行","yín háng","bank",3],["错误","cuò wù","mistake",4]]},
+      ["银","yín","silver",3],["铁","tiě","iron",4],["镜","jìng","mirror",4],
+      ["锁","suǒ","lock",5],["锅","guō","pot, wok",5],["针","zhēn","needle",5],
+      ["钓","diào","to fish",5],["链","liàn","chain",5],["销","xiāo","to sell",5],
+      ["锐","ruì","sharp",6],["镇","zhèn","town; to calm",6],["钻","zuān","to drill",6],
+      ["锋","fēng","a blade's edge",6],["钞","chāo","banknote",6]],
+     words:[["银行","yín háng","bank",3],["错误","cuò wù","mistake",4],
+     ["销售","xiāo shòu","to sell",5],["项链","xiàng liàn","necklace",5],
+     ["尖锐","jiān ruì","sharp",6],["钞票","chāo piào","banknote",6],["锋利","fēng lì","sharp",6]]},
 
     {comp:"女", name:"woman", chars:[
       ["好","hǎo","good",1],["她","tā","she",1],["妈","mā","mother",1],
       ["姐","jiě","elder sister",1],["妹","mèi","younger sister",2],["姓","xìng","surname",2],
-      ["始","shǐ","to begin",2],["婚","hūn","marriage",3],["安","ān","peace",3]],
-     words:[["妈妈","mā ma","mum",1],["姐姐","jiě jie","elder sister",1],["开始","kāi shǐ","to begin",2]]}
+      ["始","shǐ","to begin",2],["婚","hūn","marriage",3],
+      ["姑","gū","aunt; girl",5],["娘","niáng","mother; girl",5],["嫁","jià","to marry (a husband)",5],
+      ["姻","yīn","marriage",5],["妇","fù","woman",5],["娱","yú","to amuse",5],
+      ["媒","méi","go-between; media",5],["姿","zī","posture",5],["妨","fáng","to hinder",6],
+      ["嫌","xián","to dislike",6],["嫉","jí","jealous (first half)",6],["妒","dù","jealous (second half)",6],
+      ["妥","tuǒ","appropriate",6]],
+     words:[["妈妈","mā ma","mum",1],["姐姐","jiě jie","elder sister",1],["开始","kāi shǐ","to begin",2],
+     ["婚姻","hūn yīn","marriage",5],["娱乐","yú lè","entertainment",5],["姿势","zī shì","posture",5],
+     ["嫉妒","jí dù","to envy",6],["妥当","tuǒ dang","appropriate",6]]},
+
+    {comp:"火灬", name:"fire", chars:[
+      ["点","diǎn","dot; o'clock",1],["热","rè","hot",1],["然","rán","so, like that",3],
+      ["照","zhào","to shine; photo",3],["烧","shāo","to burn",3],["熊","xióng","bear",3],
+      ["灯","dēng","lamp",3],["烟","yān","smoke",4],["烤","kǎo","to roast",4],
+      ["烦","fán","annoyed",4],["煮","zhǔ","to boil",5],["炒","chǎo","to stir-fry",5],
+      ["炸","zhá","to deep-fry",5],["灾","zāi","disaster",5],["爆","bào","to burst",5],
+      ["燃","rán","to burn",5],["焦","jiāo","scorched; anxious",6],["熄","xī","to put out (a fire)",6]],
+     words:[["照顾","zhào gù","to look after",3],["麻烦","má fan","trouble",4],["燃烧","rán shāo","to burn",5],
+     ["爆炸","bào zhà","to explode",5],["焦虑","jiāo lǜ","anxious",6],["熄灭","xī miè","to go out (of a fire)",6]]},
+
+    {comp:"月", name:"flesh", chars:[
+      ["朋","péng","friend",1],["服","fú","clothes; to serve",1],["脑","nǎo","brain",1],
+      ["脸","liǎn","face",3],["腿","tuǐ","leg",3],["胖","pàng","fat",3],
+      ["脚","jiǎo","foot",3],["肚","dù","belly",4],["胳","gē","arm (first half)",5],
+      ["膊","bó","arm (second half)",5],["肩","jiān","shoulder",5],["腰","yāo","waist",5],
+      ["肌","jī","muscle",5],["胸","xiōng","chest",5],["脖","bó","neck",5],
+      ["膝","xī","knee",6],["膨","péng","to swell",6],["脂","zhī","fat, grease",6]],
+     words:[["朋友","péng you","friend",1],["衣服","yī fu","clothes",1],["脖子","bó zi","neck",5],
+     ["胳膊","gē bo","arm",5],["肌肉","jī ròu","muscle",5],["脂肪","zhī fáng","body fat",6],["膝盖","xī gài","knee",6]]},
+
+    {comp:"疒", name:"sickness", chars:[
+      ["病","bìng","illness",2],["疼","téng","to ache",3],["瘦","shòu","thin",3],
+      ["痛","tòng","pain",5],["疯","fēng","mad",5],["疲","pí","weary",5],
+      ["疗","liáo","to treat, to cure",5],["痒","yǎng","itchy",5],["症","zhèng","disease, symptom",6],
+      ["疾","jí","illness",6],["痕","hén","mark, trace",6],["瘾","yǐn","craving, habit",6]],
+     words:[["生病","shēng bìng","to fall ill",2],["疲劳","pí láo","fatigued",5],["治疗","zhì liáo","to treat",5],
+     ["痛苦","tòng kǔ","pain, suffering",5],["症状","zhèng zhuàng","symptom",6],["痕迹","hén jì","trace",6]]}
   ];
 
   /* ---------- stroke-order rules, shown with each wave ----------
      Tiered by the vocabulary chip: HSK 1-2 gets the four rules that cover
-     most characters, 3 adds enclosures and radicals, 4 the awkward ones. A
+     most characters, 3 adds enclosures and radicals, 4 the awkward ones,
+     5 and 6 how to break down a character with fifteen strokes in it. A
      level sees its own tier and everything below it. */
   const HINTS = {
     2:[
@@ -537,6 +671,13 @@
       "A stray dot on the right waits until the end — 犬 is 大 then the dot.",
       "Enclosures that open at the bottom (门, 冂) go top, left, then right.",
       "When two components stack, finish the upper one completely first."
+    ],
+    5:[
+      "In a crowded character every part shrinks but keeps its own order: 谢 is 讠, then 身, then 寸.",
+      "Left to right holds even three parts wide: 街 is 彳, then 圭, then 亍.",
+      "A bowl open at the top is written after what it holds: 凶 fills before the 凵.",
+      "匚 goes top, inside, then the corner: 区 is 一, then 乂, then the corner ㇄.",
+      "Count the parts before the strokes — a 15-stroke character is usually three you already know."
     ]
   };
   let hintAt = 0;
@@ -544,6 +685,7 @@
     let out = HINTS[2];
     if(S.level >= 3) out = out.concat(HINTS[3]);
     if(S.level >= 4) out = out.concat(HINTS[4]);
+    if(S.level >= 5) out = out.concat(HINTS[5]);
     return out;
   }
   function nextHint(){
@@ -575,7 +717,7 @@
   };
   const STATS = Object.create(null);   // char -> record, session only
   const VERSION = "1.0-rc1";
-  const BUILD = "v52";        // lineage, so a pasted probe log still says which build
+  const BUILD = "v53";        // lineage, so a pasted probe log still says which build
   let PROBE = false;                   // toggle from the trouble list
 
   let drawPts = [], drawT0 = 0, inkSrc = null, judged = false;
@@ -652,7 +794,9 @@
          + " · " + (S.mode === "trace" ? "trace" : "blank")
          + " · matching " + (TOL_NAME[String(S.tol)] || S.tol)
          + " · " + PACES[S.pace].name
-         + " · shape check " + (GATE ? "on" : "off");
+         + " · shape check " + (GATE ? "on" : "off")
+         + " · paper " + PAPER + " " + paperSide + "px"
+         + (pxK !== 1 ? " (gate px \u00d7" + pxK.toFixed(2) + ")" : "");
   }
 
   function probeNote(text){
@@ -692,6 +836,26 @@
      part way through writing it, the rebuild waits until you have finished. */
   let paperSide = 0, pendingPaper = false, mountedFoe = null;
 
+  /* Two sizes of writing square. Normal is every build up to v52, unchanged.
+     Large is for writing on a phone held upright: nearly the full width, and
+     up to half the height, paid for by the lane. Held sideways a phone is
+     already height-bound at either size, so there Large only helps on a
+     tablet. Chosen on the splash only - never mid-run - so the "paper only
+     changes on rotate" rule still holds during play. */
+  const PAPER_SIZES = {
+    normal:{pw:0.82, ph:0.38, fw:0.92, fh:0.46, lw:0.44},
+    large: {pw:0.94, ph:0.50, fw:0.96, fh:0.54, lw:0.56}
+  };
+  const PAPER_STORE = "inkstrike.paper.v1";
+  let PAPER = "normal";
+  try{ const v = localStorage.getItem(PAPER_STORE); if(PAPER_SIZES[v]) PAPER = v; }catch(e){}
+  const NCAPS = {p:0, l:0};         // what Normal would be holding, tracked alongside
+  let normalEq = 0;                 // the Normal paper for this screen, right now
+  /* The shape gate's thresholds are in pixels, tuned on the Normal paper.
+     On Large they are scaled by how much bigger the square is, so a stroke
+     is judged exactly as it would be on Normal - bigger, not stricter. */
+  let pxK = 1;
+
   const STEP = 4;                   // quantise, so viewport jitter is not a rebuild
   const DEAD = 24;                  // ignore anything smaller: viewport noise, not a resize
   const CAPS = {p:0, l:0};          // best size each orientation has been seen to hold
@@ -704,13 +868,14 @@
      right column, top to bottom: the header and the gloss sit over the lane,
      and the probe is pinned over the lane too, so none of them cost it any
      height. */
-  function maxSide(){
+  function maxSide(f){
+    f = f || PAPER_SIZES[PAPER];
     const app = document.getElementById("app");
     const appH = app.clientHeight || window.innerHeight;
     const appW = app.clientWidth || window.innerWidth;
     const side = isLandscape()
-      ? Math.min(window.innerWidth*0.44, appH - 10)
-      : Math.min(appW*0.82, appH*0.38);
+      ? Math.min(window.innerWidth*f.lw, appH - 10)
+      : Math.min(appW*f.pw, appH*f.ph);
     return Math.max(96, Math.round(side/STEP)*STEP);
   }
   /* One size whichever way you hold the phone, because the shape gate
@@ -728,16 +893,22 @@
      remembered. */
   /* What actually fits on screen this instant, as opposed to what we would
      like: a bogus reading can never push the paper past this. */
-  function hardFit(){
+  function hardFit(f){
+    f = f || PAPER_SIZES[PAPER];
     const app = document.getElementById("app");
     const appH = app.clientHeight || window.innerHeight;
     const appW = app.clientWidth || window.innerWidth;
-    const side = isLandscape() ? appH - 10 : Math.min(appW*0.92, appH*0.46);
+    const side = isLandscape() ? appH - 10 : Math.min(appW*f.fw, appH*f.fh);
     return Math.round(side/STEP)*STEP;
   }
   function wantSide(){
+    const w = wantSideFor(PAPER_SIZES[PAPER], CAPS);
+    normalEq = PAPER === "normal" ? w : wantSideFor(PAPER_SIZES.normal, NCAPS);
+    return w;
+  }
+  function wantSideFor(f, CAPS){
     const ls = isLandscape();
-    const cur = maxSide();
+    const cur = maxSide(f);
     let settled = true;
     try{ settled = window.matchMedia("(orientation:landscape)").matches === ls; }catch(e){}
     const mine = ls ? "l" : "p", other = ls ? "p" : "l";
@@ -749,7 +920,7 @@
        time. Within an orientation the target only ever goes up. */
     let side = Math.max(cur, CAPS[mine]);
     if(CAPS[other]) side = Math.min(side, CAPS[other]);
-    return Math.max(96, Math.min(side, hardFit()));
+    return Math.max(96, Math.min(side, hardFit(f)));
   }
   /* Portrait docks the probe at the foot of the screen, where it has always
      been, and pays for it out of the app's padding. Landscape gives it a
@@ -815,6 +986,7 @@
   function applyPaper(side){
     if(paperSide && paperSide !== side) probeNote("paper " + paperSide + " -> " + side + "px");
     paperSide = side;
+    pxK = (PAPER === "normal" || !normalEq) ? 1 : Math.max(1, side/normalEq);
     paper.style.width=side+"px"; paper.style.height=side+"px";
     const sl=document.getElementById("seal"); if(sl) sl.style.fontSize=Math.round(side*0.085)+"px";
     placeProbe();
@@ -886,7 +1058,7 @@
      preset un-presses itself the moment the settings stop matching it. */
   const PRESETS = {
     beginner:{level:2, mode:"trace", tol:2.4, pace:0},
-    advanced:{level:4, mode:"blank", tol:1.0, pace:4}
+    advanced:{level:6, mode:"blank", tol:1.0, pace:4}
   };
   const sameVal = (a,b)=> (isFinite(+a) && isFinite(+b)) ? +a === +b : String(a) === String(b);
   function setChip(id, val){
@@ -916,6 +1088,17 @@
   wireChips("setMode",  v=>{S.mode=v;   syncPreset(); probeNote(settingsLine());});
   wireChips("setTol",   v=>{S.tol=+v;   syncPreset(); probeNote(settingsLine());});
   wireChips("setPace",  v=>{S.pace=+v; applyPace(); syncPreset(); probeNote(settingsLine());});
+  wireChips("setPaper", v=>setPaper(v));
+  function setPaper(v){
+    if(!PAPER_SIZES[v] || v === PAPER) return;
+    PAPER = v;
+    try{ localStorage.setItem(PAPER_STORE, v); }catch(e){}
+    /* The remembered best sizes belong to the old setting - carry them
+       over and the paper could never shrink back to Normal. */
+    CAPS.p = CAPS.l = 0;
+    sizePaper({force:true});
+    probeNote(settingsLine());
+  }
 
   elPace.addEventListener("click", ()=>{
     S.pace=(S.pace+1)%PACES.length; applyPace();
@@ -1421,7 +1604,7 @@
     const tn = turnStats(smooth(resample(m, 16)));
     const scale = S.side ? S.side/1024 : 0;
     const px = L*scale;
-    if(L < 150 || (px && px < 50)) return {mult:2.2, tag:"dot",  L:L, T:tn.sum, Traw:t.sum, Tmax:t.max, Tn:tn.max};
+    if(L < 150 || (px && px < 50*pxK)) return {mult:2.2, tag:"dot",  L:L, T:tn.sum, Traw:t.sum, Tmax:t.max, Tn:tn.max};
     if(t.max > 60)                 return {mult:1.35,tag:"hook", L:L, T:tn.sum, Traw:t.sum, Tmax:t.max, Tn:tn.max};
     return {mult:1, tag:"line", L:L, T:tn.sum, Traw:t.sum, Tmax:t.max, Tn:tn.max};
   }
@@ -1736,7 +1919,7 @@
       const dl = pxLen(drawPts);
       if(dpx && drawPts.length >= 2){
         v.ratio = dl/dpx;
-        if(v.ratio > Math.min(GATE_DOT*R, 2.2) && (dl - dpx) > 15*R) v.kill = v.kill || "long";
+        if(v.ratio > Math.min(GATE_DOT*R, 2.2) && (dl - dpx) > 15*R*pxK) v.kill = v.kill || "long";
       }
       return v;
     }
@@ -1760,18 +1943,18 @@
        the five-kill escape still steps out of the way if it is wrong. */
     const refPts = refPtsPx(i);
     const sideNow = S.side || paper.clientWidth || 0;
-    if(refPts && refPts.length > 1 && drawPts.length > 1 && refPx > 80){
+    if(refPts && refPts.length > 1 && drawPts.length > 1 && refPx > 80*pxK){
       v.endGap = dist(drawPts[drawPts.length-1], refPts[refPts.length-1]);
       if(sideNow && v.endGap > GATE_STOP*sideNow) v.kill = v.kill || "stop";
     }
     if(v.kill){ /* already decided */ }
-    else if(v.ratio > GATE_RATIO*R && (dL - refPx) > GATE_SLACK*R) v.kill = v.kill || "long";
+    else if(v.ratio > GATE_RATIO*R && (dL - refPx) > GATE_SLACK*R*pxK) v.kill = v.kill || "long";
     /* Short used to fire on any stroke drawn under 62%, which caught the
        right stroke drawn a bit stingily - correct angle, correct place, just
        stopped early. That is the library's business, not the gate's. The
        gate is here to catch a DIFFERENT stroke, so a short one only counts
        if the reference folds, or it is a stub, or it points elsewhere. */
-    else if(v.ratio < GATE_SHORT/R && (refPx - dL) > GATE_SLACK2*R
+    else if(v.ratio < GATE_SHORT/R && (refPx - dL) > GATE_SLACK2*R*pxK
             && (k.tag === "hook" || v.ratio < GATE_STUB
                 || (v.dA != null && v.dA > GATE_OFFAXIS))) v.kill = v.kill || "short";
     /* Two near-misses are not a near-miss. 步 #0 was drawn at 48% of its
@@ -1795,9 +1978,9 @@
        and those were being rejected for being drawn straight, which is how
        they look. Require an actual corner in the reference: the same test
        that tags it a hook. */
-    else if(refPx > GATE_BENDREF && k.tag === "hook" && k.T > GATE_BENT
+    else if(refPx > GATE_BENDREF*pxK && k.tag === "hook" && k.T > GATE_BENT
             && v.dT < (GATE_FLAT/R)*k.T) v.kill = v.kill || "flat";
-    else if(refPx > GATE_LONGREF && v.dA != null
+    else if(refPx > GATE_LONGREF*pxK && v.dA != null
             && v.dA > GATE_ANGLE + (relax?30:0)) v.kill = v.kill || "angle";
     return v;
   }
@@ -2000,7 +2183,7 @@
   });
   $("#probeToggle").addEventListener("click", ()=>setProbe(!PROBE));
   $("#soundToggle").addEventListener("click", ()=>setSound(!S.sound));
-  setProbe(true, false); setSound(false); loadSamples(); syncPreset();
+  setProbe(true, false); setSound(false); loadSamples(); syncPreset(); setChip("setPaper", PAPER);
 
   applyPace();
 })();

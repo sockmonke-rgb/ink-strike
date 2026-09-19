@@ -1,10 +1,10 @@
 # Ink Strike — test plan
 
-**Plan version 1.2** · 13 September 2026 · covers Ink Strike 1.0-rc1, build v47
+**Plan version 1.3** · 19 September 2026 · covers Ink Strike 1.0-rc1, build v53
 
 The single HTML file is the unit under test; there is no build step to verify.
 The plan is versioned separately from the game: quote both when reporting, as in
-"plan 1.2 against 1.0-rc1 · v47". Revision history is at the foot of the
+"plan 1.3 against 1.0-rc1 · v53". Revision history is at the foot of the
 document.
 
 Three tiers, in order of cost:
@@ -12,11 +12,11 @@ Three tiers, in order of cost:
 - **Tier 0 — pre-flight.** Static checks on the file. No device. Runs in seconds.
   Nothing should be handed over until these pass.
 - **Tier 1 — layout invariants.** The class of bug that produced v34 through v43.
-  Twelve checks, one pass through the app each, ~5 minutes.
+  Thirteen checks, one pass through the app each, ~5 minutes.
 - **Tier 2 — gameplay and gate.** Everything else. ~20 minutes for a full pass,
   or run the affected section only.
 
-Record the build stamp (`1.0-rc1 · v47`) with every result. It appears on the
+Record the build stamp (`1.0-rc1 · v53`) with every result. It appears on the
 splash, the in-play watermark, the probe header and the head of any copied log.
 
 ---
@@ -30,11 +30,13 @@ splash, the in-play watermark, the probe header and the head of any copied log.
 | P3 | Every `$("#x")` and `getElementById("x")` target exists in the markup | Cross-reference against P2's set |
 | P4 | Tags balance in `<body>` | Stack-walk `div/section/header/p/h1/h2/button/span` |
 | P5 | One source for the version | `VERSION` and `BUILD` each assigned exactly once; every display path goes through `STAMP` |
-| P6 | Offline marker intact | `<!--OFFLINE_BUNDLE-->` present exactly once, and the runtime's reconstructed `MARKER` string still matches it |
-| P7 | No browser storage beyond the two known keys | Only `inkstrike.fit.v1` (samples) should appear; flag any new `localStorage` key |
+| P6 | Offline marker intact | Hosted copy: `<!--OFFLINE_BUNDLE-->` present exactly once, and the runtime's reconstructed `MARKER` string still matches it. Offline copy: no marker, one `window.HANZI_DATA` |
+| P7 | No browser storage beyond the two known keys | Only `inkstrike.fit.v1` (samples) and `inkstrike.paper.v1` (paper size) should appear; flag any new `localStorage` key |
 | P8 | Gate constants all referenced | Every `GATE_*` declared is used at least once — catches a rule edited out from under its constant |
 | P9 | CSS braces balance; every `@media` block closes | Brace-count the `<style>` block |
-| P10 | Size arithmetic | Replay `maxSide`/`wantSide`/`hardFit` in isolation for a table of viewports (see Tier 1 fixtures) and assert the paper is identical across probe states |
+| P10 | Size arithmetic | Replay `maxSide`/`wantSide`/`hardFit` in isolation for a table of viewports (see Tier 1 fixtures), **for both paper sizes**, and assert the paper is identical across probe states |
+| P11 | Content is well-formed | Every word row has one pinyin syllable per character; no single character is listed in two groups; every level is 1–6; at each vocabulary chip at least eight groups have four or more eligible characters |
+| P12 | Offline copy covers the game | Every character in `GROUPS` has an entry in `HANZI_DATA` — a missing one only shows up on a phone with no network, as a blank paper |
 
 P10 is the one that would have caught v34 (portrait 252 → 180), v39 (portrait
 flapping 268 ↔ 276) and v43 (dock overrunning its reservation) without a device.
@@ -44,15 +46,17 @@ flapping 268 ↔ 276) and v43 (dock overrunning its reservation) without a devic
 ## Tier 1 — layout invariants
 
 The matrix: **2 orientations × 3 probe states (off / folded / open) × 2 settings
-states (splash / in-play)**. Every check below holds in every cell unless it
-names one.
+states (splash / in-play)**, and from v53 **× 2 paper sizes**. Every check below
+holds in every cell unless it names one.
 
 ### The paper
 
 - **L1 — the paper never changes size except on rotate.**
   Turn the probe on, fold it, open it, open and close settings, write a few
   characters. The log should contain **zero** `paper A -> Bpx` lines. Any such
-  line outside a rotate is a failure, and names the two sizes involved.
+  line outside a rotate is a failure, and names the two sizes involved. The one
+  exception is pressing the **Writing square** chip on the splash, which logs a
+  single resize.
 - **L2 — nothing overlaps the paper.** All four edges visible, with the grid
   lines meeting the border. Specifically check the bottom edge against the
   portrait dock with the log full (not just freshly opened — the v43 bug only
@@ -68,6 +72,24 @@ names one.
 - **L6 — mid-stroke resize behaves.** Rotate halfway through a character: the
   rebuild happens immediately and the character restarts. Fold the probe
   mid-stroke: nothing happens at all.
+- **L13 — Large paper.** On the splash, Normal → Large grows the square and
+  Large → Normal shrinks it back to exactly the Normal size (the remembered
+  best sizes are cleared on change, so it can shrink). The setting survives a
+  reload. Normal must still match v52 to the pixel. Expected sizes, measured on
+  v53:
+
+  | Viewport | Normal | Large | Lane in play, Normal / Large |
+  |---|---|---|---|
+  | 402×700 | 268 | 352 | 236 / 152 |
+  | 402×844 | 320 | 376 | 328 / 272 |
+  | 375×667 | 252 | 332 | 219 / 139 |
+  | 768×1024 | 388 | 512 | 440 / 316 |
+  | 874×390 | 380 | 380 | 270 / 270 |
+  | 1024×768 | 452 | 572 | 648 / 648 |
+
+  Phone landscape is height-bound at either size, so Large changes nothing there;
+  that is expected. The lane on Large must still hold a two-character word blot
+  (62px) with clear lane above and below it.
 
 ### The probe
 
@@ -95,7 +117,8 @@ Viewports worth checking, since they exercise different binding constraints:
 | Context | Portrait | Landscape | Binds on |
 |---|---|---|---|
 | iPhone, in-app preview | 402×~700 | ~874×~325 | height, both |
-| iPhone, full-screen browser | 402×844 | 874×390 | height, both |
+| iPhone, full-screen browser | 402×844 | 874×390 | height, both (Normal); width in portrait (Large) |
+| iPhone SE | 375×667 | — | height |
 | iPad | 768×1024 | 1024×768 | width in portrait |
 | Short window | — | 1200×420 | height |
 
@@ -105,13 +128,31 @@ Viewports worth checking, since they exercise different binding constraints:
 
 ### Splash
 
-- All four chip groups respond, one selection each, defaults are HSK 1–4 /
-  Trace / Forgiving / Calm.
+- All five chip groups respond, one selection each, defaults are HSK 1–4 /
+  Trace / Forgiving / Calm / Normal (or whichever paper size was last chosen on
+  this device).
+- The five vocabulary chips (HSK 1–2 to HSK 1–6) sit on one line with no label
+  clipped, on a phone and on an iPad.
+- **Beginner** lands on the leftmost chip of the four difficulty groups and
+  **Advanced** on the rightmost — Advanced is now HSK 1–6. Neither preset touches
+  the paper size.
 - **Start writing** enters play; the first character mounts within a second.
 - With no network and no bundle: the error note names the Files-app limitation
   rather than failing silently.
 - With a bundle present: the note says stroke data is built in, and **Save an
   offline copy** offers a download rather than a rebuild.
+
+### Vocabulary
+
+- **HSK 1–5 and 1–6** deal characters tagged 5 and 6 into the existing groups,
+  and add the **sickness** (疒) group, which reaches the four characters a wave
+  needs only from HSK 1–5 up.
+- **Fire** (火灬) and **flesh** (月) are dealt from HSK 1–3 up — they carry
+  HSK 1–4 characters as well as 5–6 ones.
+- 安 appears only in the roof (宀) group; before v53 it was also dealt in the
+  woman (女) wave.
+- The wave banner at HSK 1–5 and above rotates in the tier-5 hints (breaking a
+  long character into parts, 街, 凶, 区).
 
 ### The loop
 
@@ -179,15 +220,22 @@ probe prints as `gate:pass` or `gate:<reason>`.
 | G6 | 妈 #1 | the 横 written before the 撇 | `place` — genuine stroke-order error, must still be caught | v25 log |
 | G7 | any stroke | a stray tap (1–3 points) | no retry consumed — `m` does not advance | merged branch |
 | G8 | any dot | a dot drawn 3× too long | `long` — the dot cap holds regardless of retries | merged branch |
-| G11 | any long straight stroke | the correct stroke, drawn slowly and shakily (600ms+) | `pass` — summed turning without a corner is a finger, not a different stroke | v46 log |
 
-Plus two settings checks:
+Plus three settings checks:
 
 - **G9 — the chip reaches the gate.** The same marginal stroke should be rejected
   on Exact and accepted on Forgiving. If both behave identically the chip is not
   wired through (the bug in every build before v36).
 - **G10 — the escape hatch.** Five consecutive gate kills on one stroke stands the
   gate down; the probe tags the stroke `*`. You can never be wedged.
+- **G11 — the paper size does not change strictness.** The gate's pixel
+  thresholds scale with the square on Large, so the same stroke gets the same
+  verdict on either size. The settings line in a copied log says so:
+  `paper large 352px (gate px ×1.31)`. On Normal there is no `×` at all. Checked
+  for v53 by drawing the reference paths automatically at 402×700: 291 correct
+  strokes on HSK 5–6 characters, all `pass` on both sizes; 20 deliberate errors
+  (last stroke first, first stroke backwards), all rejected, with identical
+  verdicts on both sizes.
 
 ### Calibration
 
@@ -195,8 +243,9 @@ Plus two settings checks:
   under ~10px. `at` and `want` agree within a few px on accepted strokes.
 - **C2** — the baseline tuner settles and stops moving: `seed:N@-124` (or
   `@0`/`@124`) stable, N under ~15.
-- **C3** — calibration survives a rotate, a resize and a settings visit. It is
-  stored as fractions of the paper, so a size change must not reset it.
+- **C3** — calibration survives a rotate, a resize, a settings visit **and a
+  paper-size change**. It is stored as fractions of the paper, so a size change
+  must not reset it.
 - **C4** — a fresh session with `localStorage` cleared reaches the same place
   within a few characters.
 
@@ -207,7 +256,8 @@ Plus two settings checks:
 Include, in this order:
 
 1. The build stamp.
-2. Orientation, probe state, and the four chip settings.
+2. Orientation, probe state, and the chip settings — the first line of a copied
+   log carries all of them, including the paper size.
 3. The copied probe log — it carries the stamp, the gate verdicts and the
    `paper ->` lines, which together identify most layout and gate failures
    without a screenshot.
@@ -224,7 +274,7 @@ the log line alone cannot distinguish "drew it right" from "drew half of it".
 |---|---|---|---|
 | 1.0 | 13 Sep 2026 | 1.0-rc1 · v43 | First issue. Tier 0 pre-flight (P1–P10), Tier 1 layout invariants (L1–L12), Tier 2 gameplay and gate (G1–G10, C1–C4). |
 | 1.1 | 13 Sep 2026 | 1.0-rc1 · v46 | Added the dead-air check to *The loop* — the lane must not sit empty when a wave still has foes (v46). |
-| 1.2 | 13 Sep 2026 | 1.0-rc1 · v47 | Added G11 — a slow, shaky but correct stroke must not be rejected for summed turning (v47). |
+| 1.3 | 19 Sep 2026 | 1.0-rc1 · v53 | HSK 5–6 and the Large paper. P6 split for hosted/offline copies, P7 second storage key, P10 both sizes, new P11 (content) and P12 (offline coverage); L1 exception for the paper chip, new L13 with measured sizes; *Splash* now five groups and Advanced = HSK 1–6; new *Vocabulary* section; new G11; C3 covers a size change. (1.2 was issued in chat and never reached this copy; anything it added should be merged here.) |
 
 When a build fixes something this plan did not catch, add the check here in the
 same commit as the fix, and note the build it was first seen in.
