@@ -1,0 +1,4 @@
+# Offline builds are generated locally (build_offline.py or the in-game
+# "Save an offline copy" button) and are not kept in the repo.
+ink-strike-offline.html
+ink-strike-*-offline*.html

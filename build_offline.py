@@ -7,7 +7,7 @@ Run this once, on a machine with internet:
 
     python3 build_offline.py
 
-It reads ink-strike-v5.html, finds every Chinese character used in the game,
+It reads index.html, finds every Chinese character used in the game,
 downloads the hanzi-writer library and just those characters' stroke data,
 and writes ink-strike-offline.html next to it.
 
@@ -21,7 +21,7 @@ import sys
 import urllib.error
 import urllib.request
 
-SRC = pathlib.Path(__file__).with_name("ink-strike-v5.html")
+SRC = pathlib.Path(__file__).with_name("index.html")
 OUT = pathlib.Path(__file__).with_name("ink-strike-offline.html")
 MARKER = "<!--OFFLINE_BUNDLE-->"
 
